@@ -1,4 +1,4 @@
-CFLAGS = -std=c++17 -O2
+CFLAGS = -std=c++2a -O2
 LDFLAGS = -lglfw -lvulkan -ldl -lpthread -lX11 -lXxf86vm -lXrandr -lXi
 
 
