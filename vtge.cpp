@@ -123,7 +123,7 @@ class TestEngine{
         VkDescriptorSetLayout descriptorSetLayout;
         VkPipelineLayout pipelineLayout;
         VkPipeline graphicsPipeline;
-        VkCommandPool commandPool;
+        VkCommandPool graphicsCommandPool;
         VkCommandPool transferCommandPool;
         VkBuffer vertexBuffer;
         VkDeviceMemory vertexBufferMemory;
@@ -134,6 +134,9 @@ class TestEngine{
         VkDeviceMemory textureImageMemory;
         VkImageView textureImageView;
         VkSampler textureSampler;
+        VkCommandBuffer graphicsCommandBuffer;
+        VkCommandBuffer transferCommandBuffer;
+        VkBuffer globalStagingBuffer;
         std::vector<VkDescriptorSet> descriptorSets;
         std::vector<VkBuffer> uniformBuffers;
         std::vector<VkDeviceMemory> uniformBuffersMemory;
@@ -190,11 +193,11 @@ class TestEngine{
             createGraphicsPipeline();
             createFramebuffers();
             createCommandPool();
-            createTextureImage();
+            createTextureImage();//uses command buffer
             createTextureImageView();
             createTextureSampler();
-            createVertexBuffer();
-            createIndexBuffer();
+            createVertexBuffer();//uses command buffer
+            createIndexBuffer();//uses command buffer
             createUniformBuffers();
             createDescriptorPool();
             createDescriptorSets();
@@ -323,7 +326,7 @@ class TestEngine{
                 vkDestroyFence(device, inFlightFences[i], nullptr);
             }
             
-            vkDestroyCommandPool(device, commandPool, nullptr);
+            vkDestroyCommandPool(device, graphicsCommandPool, nullptr);
             vkDestroyCommandPool(device, transferCommandPool, nullptr);            
             vkDestroyDevice(device, nullptr);
             if (enableValidationLayers) {
@@ -341,7 +344,7 @@ class TestEngine{
             vkDestroyFramebuffer(device, swapChainFramebuffers[i], nullptr);
             }
 
-            vkFreeCommandBuffers(device, commandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
+            vkFreeCommandBuffers(device, graphicsCommandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
 
             vkDestroyPipeline(device, graphicsPipeline, nullptr);
             vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
@@ -745,11 +748,13 @@ class TestEngine{
             poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
             poolInfo.queueFamilyIndex = queueFamilyIndices.graphicsFamily.value();
             poolInfo.flags = 0; // Optional
-            if (vkCreateCommandPool(device, &poolInfo, nullptr, &commandPool) != VK_SUCCESS) {
+            if (vkCreateCommandPool(device, &poolInfo, nullptr, &graphicsCommandPool) != VK_SUCCESS) {
                 throw std::runtime_error("failed to create command pool!");
             }
 
             poolInfo.queueFamilyIndex = queueFamilyIndices.transferFamily.value();
+            // this flag should be used for pools that have shortlived buffers
+            poolInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
             if (vkCreateCommandPool(device, &poolInfo, nullptr, &transferCommandPool) != VK_SUCCESS){
                 throw std::runtime_error("failed to create command pool for transfer queue!");
             }
@@ -815,8 +820,6 @@ class TestEngine{
                 vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()),
                  descriptorWrites.data(), 0, nullptr);
             }
-            
-
         }
 
         void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties,
@@ -849,17 +852,17 @@ class TestEngine{
         }
 
         void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size){
-            VkCommandBuffer commandBuffer = beginSingleTimeCommands(transferCommandPool);
+            //VkCommandBuffer commandBuffer = beginSingleTimeCommands(transferCommandPool);
             VkBufferCopy copyRegion{};
             copyRegion.srcOffset = 0;
             copyRegion.dstOffset = 0;
             copyRegion.size = size;
-            vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
-            endSingleTimeCommands(commandBuffer, transferCommandPool, transferQueue);
+            vkCmdCopyBuffer(transferCommandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+            //endSingleTimeCommands(commandBuffer, transferCommandPool, transferQueue);
         }
 
-        void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, VkCommandPool pool, VkQueue queue){
-            VkCommandBuffer commandBuffer = beginSingleTimeCommands(pool);
+        void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, VkCommandBuffer commandBuffer, VkQueue queue){
+            //VkCommandBuffer commandBuffer = beginSingleTimeCommands(pool);
             VkImageMemoryBarrier barrier{};
             barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
             barrier.oldLayout = oldLayout;
@@ -901,11 +904,11 @@ class TestEngine{
                 1, &barrier
             );
 
-            endSingleTimeCommands(commandBuffer, pool, queue);
+            //endSingleTimeCommands(commandBuffer, pool, queue);
         }
 
         void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height){
-            VkCommandBuffer commandBuffer = beginSingleTimeCommands(transferCommandPool);
+            //VkCommandBuffer commandBuffer = beginSingleTimeCommands(transferCommandPool);
             VkBufferImageCopy region{};
             region.bufferOffset = 0;
             region.bufferRowLength = 0;
@@ -921,16 +924,17 @@ class TestEngine{
                 1
             };
             vkCmdCopyBufferToImage(
-                commandBuffer,
+                transferCommandBuffer,
                 buffer,
                 image,
                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                 1,
                 &region
             );
-            endSingleTimeCommands(commandBuffer, transferCommandPool, transferQueue);
+            //endSingleTimeCommands(commandBuffer, transferCommandPool, transferQueue);
         }
 
+       
         void createVertexBuffer(){
             VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
             VkBuffer stagingBuffer;
@@ -945,12 +949,15 @@ class TestEngine{
             createBuffer(bufferSize,  VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
               vertexBuffer, vertexBufferMemory);
+            beginSingleTimeCommands(transferCommandPool);
             copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
+            endSingleTimeCommands(transferCommandBuffer, transferCommandPool, transferQueue);
             vkDestroyBuffer(device, stagingBuffer, nullptr);
             vkFreeMemory(device, stagingBufferMemory, nullptr);
         }
 
         void createIndexBuffer(){
+
             VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 
             VkBuffer stagingBuffer;
@@ -963,9 +970,9 @@ class TestEngine{
             vkUnmapMemory(device, stagingBufferMemory);
 
             createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
-
+            beginSingleTimeCommands(transferCommandPool);
             copyBuffer(stagingBuffer, indexBuffer, bufferSize);
-
+            endSingleTimeCommands(transferCommandBuffer, transferCommandPool, transferQueue);
             vkDestroyBuffer(device, stagingBuffer, nullptr);
             vkFreeMemory(device, stagingBufferMemory, nullptr);
         }
@@ -986,7 +993,7 @@ class TestEngine{
             commandBuffers.resize(swapChainFramebuffers.size());
             VkCommandBufferAllocateInfo allocInfo{};
             allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-            allocInfo.commandPool = commandPool;
+            allocInfo.commandPool = graphicsCommandPool;
             allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
             allocInfo.commandBufferCount = (uint32_t) commandBuffers.size();
 
@@ -1080,16 +1087,20 @@ class TestEngine{
             memcpy(data, pixels, static_cast<size_t>(imageSize));
             vkUnmapMemory(device, stagingBufferMemory);
             stbi_image_free(pixels);
+            transferCommandBuffer = beginSingleTimeCommands(transferCommandPool);
+            graphicsCommandBuffer = beginSingleTimeCommands(graphicsCommandPool);
             createImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
              VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
              VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
             transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB,
-             VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, transferCommandPool, transferQueue);
+             VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, transferCommandBuffer, transferQueue);
             copyBufferToImage(stagingBuffer, textureImage, static_cast<uint32_t>(texWidth),
              static_cast<uint32_t>(texHeight));
             transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB,
              VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
-             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, commandPool, graphicsQueue);
+             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, graphicsCommandBuffer, graphicsQueue);
+            endSingleTimeCommands(transferCommandBuffer, transferCommandPool, transferQueue);
+            endSingleTimeCommands(graphicsCommandBuffer, graphicsCommandPool, graphicsQueue);
             vkDestroyBuffer(device, stagingBuffer, nullptr);
             vkFreeMemory(device, stagingBufferMemory, nullptr);
         }
