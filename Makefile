@@ -1,6 +1,6 @@
 STB_IMAGE_INCLUDE_PATH = ../stb
-
-CFLAGS = -std=c++2a -O2 -I$(STB_IMAGE_INCLUDE_PATH)
+TINY_OBJ_INCLUDE_PATH = ../tinyobjloader
+CFLAGS = -std=c++2a -O2 -O3 -I$(STB_IMAGE_INCLUDE_PATH) -I$(TINY_OBJ_INCLUDE_PATH)
 LDFLAGS = -lglfw -lvulkan -ldl -lpthread -lX11 -lXxf86vm -lXrandr -lXi
 
 

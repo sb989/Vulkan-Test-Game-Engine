@@ -2,6 +2,7 @@
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define STB_IMAGE_IMPLEMENTATION
+#define TINYOBJLOADER_IMPLEMENTATION
 #include <GLFW/glfw3.h>
 #include <iostream>
 #include <vector>
@@ -18,6 +19,7 @@
 #include <chrono>
 #include <array>
 #include <stb_image.h>
+#include <tiny_obj_loader.h>
 
 #ifdef NDEBUG
     const bool enableValidationLayers = false;
@@ -114,6 +116,8 @@ class TestEngine{
         }
 
     private: 
+        float x_pos, y_pos, z_pos = 2.0f;
+        float x_vel, y_vel, z_vel = 0.0f;
         VkInstance instance;
         VkDevice device;
         VkQueue graphicsQueue;
@@ -162,8 +166,10 @@ class TestEngine{
         const uint32_t HEIGHT = 600;
         size_t currentFrame = 0;
         bool framebufferResized = false;
-        
-        const std::vector<Vertex> vertices = {
+        const std::string MODEL_PATH = "models/ripe-banana.obj";
+        const std::string TEXTURE_PATH = "textures/ripe-banana_u1_v1.png";
+        std::vector<Vertex> vertices;
+        /*{
             {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
             {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
             {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
@@ -173,13 +179,14 @@ class TestEngine{
             {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
             {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
             {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}
-        };
+        };*/
 
-        const std::vector<uint16_t> indices = {
+        std::vector<uint32_t> indices; 
+        /* = {
             0, 1, 2, 2, 3, 0,
             4, 5, 6, 6, 7, 4
         };
-
+        */
         void initWindow(){
             glfwInit();
 
@@ -207,6 +214,7 @@ class TestEngine{
             createTextureImage();//uses command buffer
             createTextureImageView();
             createTextureSampler();
+            loadModel();
             createVertexBuffer();//uses command buffer
             createIndexBuffer();//uses command buffer
             createUniformBuffers();
@@ -247,6 +255,30 @@ class TestEngine{
             createDescriptorSets();
             createCommandBuffers();
         }
+
+
+        void handleKeyPress(GLFWwindow* window){
+            int up_state = glfwGetKey(window, GLFW_KEY_UP);
+            int down_state = glfwGetKey(window, GLFW_KEY_DOWN);
+            int left_state = glfwGetKey(window, GLFW_KEY_LEFT);
+            int right_state = glfwGetKey(window, GLFW_KEY_RIGHT);
+            if(up_state == GLFW_PRESS || up_state == GLFW_REPEAT && down_state != GLFW_REPEAT){
+                y_pos += 1;
+            } else if(down_state == GLFW_PRESS || down_state == GLFW_REPEAT && up_state != GLFW_REPEAT){
+                y_pos -= 1;
+            }
+
+            if(left_state == GLFW_PRESS || left_state == GLFW_REPEAT && right_state != GLFW_REPEAT){
+                x_pos += 1;
+            } else if(right_state == GLFW_PRESS || right_state == GLFW_REPEAT && left_state != GLFW_REPEAT){
+                x_pos -= 1;
+            }
+
+            std::cout<<"xpos"<<x_pos<<std::endl;
+            std::cout<<"ypos"<<y_pos<<std::endl;
+            
+            
+        }
         
         void drawFrame(){
             vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
@@ -266,6 +298,7 @@ class TestEngine{
                  vkWaitForFences(device, 1, &imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
             }
             imagesInFlight[imageIndex] = inFlightFences[currentFrame];
+            handleKeyPress(window);
             updateUniformBuffer(imageIndex);
             VkSubmitInfo submitInfo{};
             submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -312,8 +345,8 @@ class TestEngine{
             float time = std::chrono::duration<float, std::chrono::seconds::period>(currrentTime - startTime).count();
             UniformBufferObject ubo{};
             ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-            ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.00f, 0.0f, 1.0f));
-            ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 10.0f);
+            ubo.view = glm::lookAt(glm::vec3(x_pos, y_pos, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.00f, 0.0f, 1.0f));
+            ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, x_pos - 1, x_pos + 10.0f);
             ubo.proj[1][1] *= -1; //glm was design for opengl where y coords are inverted so multiply by -1
             void *data;
             vkMapMemory(device, uniformBuffersMemory[currentImage], 0, sizeof(ubo), 0, &data);
@@ -1116,7 +1149,7 @@ class TestEngine{
                 VkBuffer vertexBuffers[] = {vertexBuffer};
                 VkDeviceSize offsets[] = {0};
                 vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
-                vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+                vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT32);
                 vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS,
                  pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
                 vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
@@ -1164,7 +1197,7 @@ class TestEngine{
 
         void createTextureImage(){
             int texWidth, texHeight, texChannels;
-            stbi_uc* pixels = stbi_load("textures/banana.jpg", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+            stbi_uc* pixels = stbi_load(TEXTURE_PATH.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
             VkDeviceSize imageSize = texWidth * texHeight * 4;
 
             if(!pixels){
@@ -1540,6 +1573,37 @@ class TestEngine{
     static void framebufferResizeCallback(GLFWwindow* window, int width, int height){
         auto app = reinterpret_cast<TestEngine*>(glfwGetWindowUserPointer(window));
         app->framebufferResized = true;
+    }
+
+    void loadModel(){
+        tinyobj::attrib_t attrib;
+        std::vector<tinyobj::shape_t> shapes;
+        std::vector<tinyobj::material_t> materials;
+        std::string warn, err;
+
+        if(!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, MODEL_PATH.c_str())){
+            throw std::runtime_error(warn + err);
+        }
+
+        for(const auto& shape: shapes){
+            for(const auto& index : shape.mesh.indices){
+                Vertex vertex{};
+                vertex.pos = {
+                    attrib.vertices[3 * index.vertex_index + 0],
+                    attrib.vertices[3 * index.vertex_index + 1],
+                    attrib.vertices[3 * index.vertex_index + 2]
+                };
+                vertex.texCoord = {
+                    attrib.texcoords[2 * index.texcoord_index + 0],
+                    1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
+                };
+
+                vertex.color = {1.0f, 1.0f, 1.0f};
+                vertices.push_back(vertex);
+                indices.push_back(indices.size());
+                
+            }
+        }
     }
 };
 
