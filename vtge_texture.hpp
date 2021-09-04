@@ -7,6 +7,7 @@ class Texture{
         VkImageView textureImageView;
         VkDeviceMemory textureImageMemory;
         VkSampler textureSampler;
+        Texture(std::string texturePath);
     private:
         std::string texturePath;
         int texWidth;
@@ -14,9 +15,9 @@ class Texture{
         int texChannels;
         uint32_t mipLevels;
        
-        VkQueue *transferQueue, *graphicsQueue;
-        VkCommandPool *transferCommandPool, *graphicsCommandPool;
-        VkBuffer stagingBuffer;
+        //VkQueue *transferQueue, *graphicsQueue;
+        //VkCommandPool *transferCommandPool, *graphicsCommandPool;
+        //VkBuffer stagingBuffer;
         void createTextureImage();
         void generateMipmaps(VkImage image, VkFormat imageFormat, VkCommandBuffer commandBuffer, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
         void createTextureImageView();

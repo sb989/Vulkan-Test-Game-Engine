@@ -4,14 +4,11 @@
 #include <stdexcept>
 #include "vtge_swapchain.hpp"
 #include "vtge_shared_variables.hpp"
-Framebuffer::Framebuffer(Swapchain *swapchain, 
-    VkRenderPass *renderPass, VkQueue *graphicsQueue, VkCommandPool *graphicsCommandPool){
+Framebuffer::Framebuffer(Swapchain *swapchain, VkRenderPass *renderPass){
         this->swapchainExtent = swapchain->swapchainExtent;
         this->swapchainImageFormat = swapchain->swapchainImageFormat;
         this->swapchainImageViews = swapchain->swapchainImageViews;
         this->renderPass = renderPass;
-        this->graphicsQueue = graphicsQueue;
-        this->graphicsCommandPool = graphicsCommandPool;
         createColorResources();
         createDepthResources();
         createFramebuffers();
@@ -61,12 +58,12 @@ void Framebuffer::createColorResources(){
 }
 
 void Framebuffer::createDepthResources(){
-    VkFormat depthFormat = getterChecker::findDepthFormat(*physicalDevice);
-    image::createImage(swapchainExtent.width, swapchainExtent.height, 1, msaaSamples, depthFormat, VK_IMAGE_TILING_OPTIMAL,
-    VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImage, depthImageMemory, *device);
-    depthImageView = image::createImageView(depthImage, *device, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1);
-    graphicsCommandBuffer = beginSingleTimeCommands(graphicsCommandPool);
+    VkFormat depthFormat = getterChecker::findDepthFormat();
+    image::createImage(swapchainExtent.width, swapchainExtent.height, 1, sharedVariables::msaaSamples, depthFormat, VK_IMAGE_TILING_OPTIMAL,
+    VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImage, depthImageMemory);
+    depthImageView = image::createImageView(depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1);
+    //graphicsCommandBuffer = beginSingleTimeCommands(graphicsCommandPool);
     image::transitionImageLayout(depthImage, depthFormat, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-        *graphicsCommandBuffer, *graphicsQueue, 1);
-    endSingleTimeCommands(graphicsCommandBuffer, graphicsCommandPool, graphicsQueue);
+        *sharedVariables::graphicsCommandBuffer, *sharedVariables::graphicsQueue, 1);
+    //endSingleTimeCommands(*sharedVariables::graphicsCommandBuffer, graphicsCommandPool, graphicsQueue);
 }

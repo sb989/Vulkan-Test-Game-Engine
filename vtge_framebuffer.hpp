@@ -5,21 +5,20 @@
 #include <vector>
 
 class Framebuffer{
-    std::vector<VkFramebuffer>      swapchainFramebuffers;
-    VkImage                         depthImage, colorImage;
-    VkDeviceMemory                  depthImageMemory, colorImageMemory;
-    VkImageView                     depthImageView, colorImageView;
-    std::vector<VkImageView>        swapchainImageViews;
-    VkExtent2D                      swapchainExtent;
-    VkFormat                        swapchainImageFormat;
-    VkRenderPass                    *renderPass;
-    VkQueue                         *graphicsQueue;
-    VkCommandPool                   *graphicsCommandPool;
-    void createFramebuffers();
-    void createColorResources();
-    void createDepthResources();
-    Framebuffer(Swapchain *swapchain, 
-    VkRenderPass *renderPass, VkQueue *graphicsQueue, 
-    VkCommandPool *graphicsCommandPool);
+    public:
+        Framebuffer(Swapchain *swapchain, VkRenderPass *renderPass);
+        std::vector<VkFramebuffer>      swapchainFramebuffers;
+    private:
+        VkImage                         depthImage, colorImage;
+        VkDeviceMemory                  depthImageMemory, colorImageMemory;
+        VkImageView                     depthImageView, colorImageView;
+        std::vector<VkImageView>        swapchainImageViews;
+        VkExtent2D                      swapchainExtent;
+        VkFormat                        swapchainImageFormat;
+        VkRenderPass                    *renderPass;
+        void createFramebuffers();
+        void createColorResources();
+        void createDepthResources();
+    
 };
 #endif

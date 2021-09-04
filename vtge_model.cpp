@@ -5,8 +5,33 @@
 #include <unordered_map>
 #define TINYOBJLOADER_IMPLEMENTATION
 
-Model::Model(std::string modelPath, Texture *texture){
+Model::Model(std::string modelPath, std::string texturePath, Swapchain *swapchain){
+    this->modelPath = modelPath;
+    this->texturePath = texturePath;
+    this->swapchain = swapchain;
+    this->texture = new Texture(texturePath);
+    loadModel();
+    createVertexBuffer();
+    createIndexBuffer();
+    createUniformBuffers();
+    createDescriptorPool();
+    createDescriptorSets();
+}
 
+Model::~Model(){
+    delete texture;
+    vkDestroyDescriptorSetLayout(*sharedVariables::device, descriptorSetLayout, nullptr);
+    vkDestroyBuffer(*sharedVariables::device, indexBuffer, nullptr);
+    vkFreeMemory(*sharedVariables::device, indexBufferMemory, nullptr);
+    vkDestroyBuffer(*sharedVariables::device, vertexBuffer, nullptr);
+    vkFreeMemory(*sharedVariables::device, vertexBufferMemory, nullptr);
+}
+
+void Model::recreateUBufferPoolSets(Swapchain *swapchain){
+    this->swapchain = swapchain;
+    createUniformBuffers();
+    createDescriptorPool();
+    createDescriptorSets();
 }
 
 void Model::createUniformBuffers(){
@@ -34,7 +59,7 @@ void Model::createDescriptorPool(){
     poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
     poolInfo.pPoolSizes = poolSizes.data();
     poolInfo.maxSets = static_cast<uint32_t>(swapchain->swapchainImages.size());
-    if(vkCreateDescriptorPool(*device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS){
+    if(vkCreateDescriptorPool(*sharedVariables::device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS){
         throw std::runtime_error("failed to create descriptor pool!");
     }            
 }
@@ -47,7 +72,7 @@ void Model::createDescriptorSets(){
     allocInfo.descriptorSetCount = static_cast<uint32_t>(swapchain->swapchainImages.size());
     allocInfo.pSetLayouts = layouts.data();
     descriptorSets.resize(swapchain->swapchainImages.size());
-    if (vkAllocateDescriptorSets(*device, &allocInfo, descriptorSets.data()) != VK_SUCCESS){
+    if (vkAllocateDescriptorSets(*sharedVariables::device, &allocInfo, descriptorSets.data()) != VK_SUCCESS){
         throw std::runtime_error("failed to allocate descriptor sets");
     }
 
@@ -78,7 +103,7 @@ void Model::createDescriptorSets(){
         descriptorWrites[1].descriptorCount = 1;
         descriptorWrites[1].pImageInfo = &imageInfo;
         
-        vkUpdateDescriptorSets(*device, static_cast<uint32_t>(descriptorWrites.size()),
+        vkUpdateDescriptorSets(*sharedVariables::device, static_cast<uint32_t>(descriptorWrites.size()),
             descriptorWrites.data(), 0, nullptr);
     }
 }
@@ -91,23 +116,22 @@ void Model::createVertexBuffer(){
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
         stagingBuffer, stagingBufferMemory);
     void *data;
-    vkMapMemory(*device, stagingBufferMemory, 0, bufferSize, 0, &data);
+    vkMapMemory(*sharedVariables::device, stagingBufferMemory, 0, bufferSize, 0, &data);
     memcpy(data, vertices.data(), (size_t) bufferSize);
-    vkUnmapMemory(*device, stagingBufferMemory);
+    vkUnmapMemory(*sharedVariables::device, stagingBufferMemory);
     buffer::createBuffer(bufferSize,  VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         vertexBuffer, vertexBufferMemory);
     //beginSingleTimeCommands(transferCommandPool);
     buffer::copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
     //endSingleTimeCommands(transferCommandBuffer, transferCommandPool, transferQueue);
-    vkDestroyBuffer(*device, stagingBuffer, nullptr);
-    vkFreeMemory(*device, stagingBufferMemory, nullptr);
+    //vkDestroyBuffer(*sharedVariables::device, stagingBuffer, nullptr);
+    //vkFreeMemory(*sharedVariables::device, stagingBufferMemory, nullptr);
 }
 
 void Model::createIndexBuffer(){
 
     VkDeviceSize bufferSize = sizeof(vertexIndices[0]) * vertexIndices.size();
-
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
     buffer::createStagingBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
@@ -115,10 +139,9 @@ void Model::createIndexBuffer(){
         stagingBuffer, stagingBufferMemory);
 
     void* data;
-    vkMapMemory(*device, stagingBufferMemory, 0, bufferSize, 0, &data);
+    vkMapMemory(*sharedVariables::device, stagingBufferMemory, 0, bufferSize, 0, &data);
     memcpy(data, vertexIndices.data(), (size_t) bufferSize);
-    vkUnmapMemory(*device, stagingBufferMemory);
-
+    vkUnmapMemory(*sharedVariables::device, stagingBufferMemory);
     buffer::createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
     //beginSingleTimeCommands(transferCommandPool);
@@ -136,7 +159,6 @@ void Model::loadModel(){
         if(!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, modelPath.c_str())){
             throw std::runtime_error(warn + err);
         }
-
         for(const auto& shape: shapes){
             for(const auto& index : shape.mesh.indices){
                 Vertex vertex{};
@@ -149,14 +171,12 @@ void Model::loadModel(){
                     attrib.texcoords[2 * index.texcoord_index + 0],
                     1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
                 };
-
                 vertex.color = {1.0f, 1.0f, 1.0f};
                 if (uniqueVertices.count(vertex) == 0){
                     uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
                     vertices.push_back(vertex);
                 }
-                vertexIndices.push_back(uniqueVertices[vertex]);
-                
+                vertexIndices.push_back(uniqueVertices[vertex]);       
             }
         }
 }

@@ -29,27 +29,30 @@ struct UniformBufferObject {
 };
 
 class Model{
-    std::string modelPath;
-    Texture *texture;
-    Swapchain *swapchain;
-
-    VkBuffer vertexBuffer, indexBuffer;
-    VkDeviceMemory vertexBufferMemory, indexBufferMemory;
-    VkDescriptorPool descriptorPool;
-    VkDescriptorSetLayout descriptorSetLayout;
-    std::vector<VkDescriptorSet> descriptorSets;
-    std::vector<uint32_t> vertexIndices;
-    std::vector<Vertex> vertices;
-    std::vector<VkBuffer> uniformBuffers;
-    std::vector<VkDeviceMemory> uniformBuffersMemory;
-    void createUniformBuffers();
-    void createDescriptorPool();
-    void createDescriptorSets();
-    //void copyBufferToImage();
-    void createVertexBuffer();
-    void createIndexBuffer();
-    void loadModel();
-    //void createTextureImage();
+    public:
+        Model(std::string modelPath, std::string texturePath, Swapchain *swapchain);
+        void recreateUBufferPoolSets(Swapchain *swapchain);
+        std::vector<VkBuffer> uniformBuffers;
+        std::vector<VkDeviceMemory> uniformBuffersMemory;
+        VkBuffer vertexBuffer, indexBuffer;
+        VkDeviceMemory vertexBufferMemory, indexBufferMemory;
+        std::vector<Vertex> vertices;
+        std::vector<uint32_t> vertexIndices;
+    private:
+        std::string modelPath, texturePath;
+        Texture *texture;
+        Swapchain *swapchain;
+        VkDescriptorPool descriptorPool;
+        VkDescriptorSetLayout descriptorSetLayout;
+        std::vector<VkDescriptorSet> descriptorSets;
+        void createUniformBuffers();
+        void createDescriptorPool();
+        void createDescriptorSets();
+        //void copyBufferToImage();
+        void createVertexBuffer();
+        void createIndexBuffer();
+        void loadModel();
+        //void createTextureImage();
 };
 
 #endif

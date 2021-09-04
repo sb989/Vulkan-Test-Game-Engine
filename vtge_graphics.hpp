@@ -8,7 +8,8 @@
 #include <optional>
 #include "vtge_queuefamilyindices.hpp"
 #include "vtge_swapchain.hpp"
-
+#include "vtge_framebuffer.hpp"
+#include "vtge_model.hpp"
 const std::vector<const char*> deviceExtensions = {
             VK_KHR_SWAPCHAIN_EXTENSION_NAME
         };
@@ -17,18 +18,18 @@ const std::vector<const char*> validationLayers = {
     "VK_LAYER_KHRONOS_validation"
 };
 
-
-
 class Graphics{
     public:
-
+        Graphics(uint32_t width, uint32_t height,
+            bool enableValidationLayers, std::string windowTitle);
+        GLFWwindow                      *window;
+        void drawFrame();
     private:
         const int                       MAX_FRAMES_IN_FLIGHT = 2;
         bool                            framebufferResized = false;
         size_t                          currentFrame = 0;
         const std::string               MODEL_PATH = "models/viking_room.obj";//"models/ripe-banana.obj";
         const std::string               TEXTURE_PATH = "textures/viking_room.png";//textures/ripe-banana_u1_v1.png";
-        float                           fps = 0.0f;
         float                           frameCount = 0;
         std::string                     windowTitle = "Vulkan Test Game Engine - FPS: ";
         float                           camXPos, camYPos, camZPos;
@@ -45,31 +46,28 @@ class Graphics{
         VkPipelineLayout                pipelineLayout;
         VkPipeline                      graphicsPipeline;
         VkCommandPool                   graphicsCommandPool, transferCommandPool;
-        VkBuffer                        vertexBuffer, indexBuffer;
-        VkDeviceMemory                  vertexBufferMemory, indexBufferMemory;
         VkDescriptorPool                descriptorPool;
         VkCommandBuffer                 graphicsCommandBuffer, transferCommandBuffer;
-        VkBuffer                        globalStagingBuffer;
         
         Swapchain                       *swapchain;
+        Framebuffer                     *framebuffer;
         QueueFamilyIndices              indices;
         VkDebugUtilsMessengerEXT        debugMessenger;
         VkSurfaceKHR                    surface;
-        GLFWwindow                      *window;
 
         std::vector<VkDescriptorSet>    descriptorSets;
-        std::vector<VkBuffer>           uniformBuffers;
-        std::vector<VkDeviceMemory>     uniformBuffersMemory;
+        ///std::vector<VkBuffer>           uniformBuffers;
+        //std::vector<VkDeviceMemory>     uniformBuffersMemory;
 
-        std::vector<VkCommandBuffer>    commandBuffers;
+        std::vector<VkCommandBuffer>    drawCommandBuffers;
         std::vector<VkSemaphore>        imageAvailableSemaphores, renderFinishedSemaphores;
         std::vector<VkFence>            inFlightFences, imagesInFlight;
 
+        std::vector<Model*>             modelList;
         VkSampleCountFlagBits           msaaSamples = VK_SAMPLE_COUNT_1_BIT;
         VkPhysicalDevice                physicalDevice = VK_NULL_HANDLE;
 
-        Graphics(uint32_t width, uint32_t height,
-            bool enableValidationLayers, std::string windowTitle);
+        
         void setUpWindow();
         void setUpGraphics();
         void createInstance();
@@ -94,14 +92,19 @@ class Graphics{
         void createUniformBuffers();
         void createDescriptorPool();
         void createDescriptorSets();
-        void createCommandBuffers();*/
+        */
+        void createDrawCommandBuffers();
         void createSyncObjects();
-        void drawFrame();
         void handleKeyPress(GLFWwindow* window);
         static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
         QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
         VkShaderModule createShaderModule(const std::vector<char>& code);
-        void updateUniformBuffer(uint32_t currentImage);
+        void updateUniformBuffer(uint32_t currentImage, Model *m);
+        void createModel(std::string modelPath, std::string texturePath);
+        void recreateSwapchain();
+        void cleanupSwapchain();
+        VkCommandBuffer beginSingleTimeCommands(VkCommandPool pool);
+        void endSingleTimeCommands(VkCommandBuffer commandBuffer, VkCommandPool pool, VkQueue queue);
 
 
 };

@@ -10,8 +10,79 @@ Swapchain::Swapchain(VkSurfaceKHR *surface, GLFWwindow *window){
 }
 
 Swapchain::~Swapchain(){
+    for (size_t i = 0; i < swapchainImageViews.size(); i++) {
+        vkDestroyImageView(*sharedVariables::device, swapchainImageViews[i], nullptr);
+    }
     vkDestroySwapchainKHR(*sharedVariables::device, swapchain, nullptr);
 }
+
+
+void recreateSwapchain(){
+    /***
+    TODO: move this stuff out of this cleanup function
+
+    int width = 0, height = 0;
+    glfwGetFramebufferSize(window, &width, &height);
+    while (width == 0 || height == 0){
+        glfwGetFramebufferSize(window, &width, &height);
+        glfwWaitEvents();
+    }
+
+    vkDeviceWaitIdle(device);
+    ***/
+    //cleanupSwapchain(); replace with a delete call in another function
+
+    //createSwapchain(); replace with a constructor call in another funciton
+    /***
+    TODO: the stuff below needs to be moved somewhere else
+    createImageViews();
+    createRenderPass();
+    createGraphicsPipeline();
+    createColorResources();
+    createDepthResources();
+    createFramebuffers();
+    createUniformBuffers();
+    createDescriptorPool();
+    createDescriptorSets();
+    createCommandBuffers();
+    */
+}
+
+
+/***
+TODO: put most (all?) of the code 
+before vkDestrpySwapchainKHR into a funciton in another
+class
+void cleanupSwapchain() {
+    vkDestroyImageView(device, colorImageView, nullptr);
+    vkDestroyImage(device, colorImage, nullptr);
+    vkFreeMemory(device, colorImageMemory, nullptr);
+    vkDestroyImageView(device, depthImageView, nullptr);
+    vkDestroyImage(device, depthImage, nullptr);
+    vkFreeMemory(device, depthImageMemory, nullptr);
+    for (size_t i = 0; i < swapchainFramebuffers.size(); i++) {
+    vkDestroyFramebuffer(device, swapchainFramebuffers[i], nullptr);
+    }
+
+    vkFreeCommandBuffers(device, graphicsCommandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
+
+    vkDestroyPipeline(device, graphicsPipeline, nullptr);
+    vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+    vkDestroyRenderPass(device, renderPass, nullptr);
+
+    for (size_t i = 0; i < swapchainImageViews.size(); i++) {
+        vkDestroyImageView(device, swapchainImageViews[i], nullptr);
+    }
+
+    for(size_t i = 0; i<swapchainImages.size(); i++){
+        vkDestroyBuffer(device, uniformBuffers[i], nullptr);
+        vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
+    }
+
+    vkDestroyDescriptorPool(device, descriptorPool, nullptr);
+    vkDestroySwapchainKHR(device, swapchain, nullptr);
+}
+***/
 
 void Swapchain::createSwapchain(){
     SwapchainSupportDetails swapchainSupport = querySwapchainSupport();
@@ -131,69 +202,3 @@ VkExtent2D Swapchain::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilit
 }
 
 
-void recreateSwapchain(){
-    /***
-    TODO: move this stuff out of this cleanup function
-
-    int width = 0, height = 0;
-    glfwGetFramebufferSize(window, &width, &height);
-    while (width == 0 || height == 0){
-        glfwGetFramebufferSize(window, &width, &height);
-        glfwWaitEvents();
-    }
-
-    vkDeviceWaitIdle(device);
-    ***/
-    //cleanupSwapchain(); replace with a delete call in another function
-
-    //createSwapchain(); replace with a constructor call in another funciton
-    /***
-    TODO: the stuff below needs to be moved somewhere else
-    createImageViews();
-    createRenderPass();
-    createGraphicsPipeline();
-    createColorResources();
-    createDepthResources();
-    createFramebuffers();
-    createUniformBuffers();
-    createDescriptorPool();
-    createDescriptorSets();
-    createCommandBuffers();
-    */
-}
-
-
-/***
-TODO: put most (all?) of the code 
-before vkDestrpySwapchainKHR into a funciton in another
-class
-void cleanupSwapchain() {
-    vkDestroyImageView(device, colorImageView, nullptr);
-    vkDestroyImage(device, colorImage, nullptr);
-    vkFreeMemory(device, colorImageMemory, nullptr);
-    vkDestroyImageView(device, depthImageView, nullptr);
-    vkDestroyImage(device, depthImage, nullptr);
-    vkFreeMemory(device, depthImageMemory, nullptr);
-    for (size_t i = 0; i < swapchainFramebuffers.size(); i++) {
-    vkDestroyFramebuffer(device, swapchainFramebuffers[i], nullptr);
-    }
-
-    vkFreeCommandBuffers(device, graphicsCommandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
-
-    vkDestroyPipeline(device, graphicsPipeline, nullptr);
-    vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
-    vkDestroyRenderPass(device, renderPass, nullptr);
-
-    for (size_t i = 0; i < swapchainImageViews.size(); i++) {
-        vkDestroyImageView(device, swapchainImageViews[i], nullptr);
-    }
-
-    for(size_t i = 0; i<swapchainImages.size(); i++){
-        vkDestroyBuffer(device, uniformBuffers[i], nullptr);
-        vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
-    }
-
-    vkDestroyDescriptorPool(device, descriptorPool, nullptr);
-    vkDestroySwapchainKHR(device, swapchain, nullptr);
-}
-***/

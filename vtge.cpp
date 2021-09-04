@@ -24,6 +24,8 @@
 #include <tiny_obj_loader.h>
 #include <unordered_map>
 #include <chrono>
+#include "vtge_graphics.hpp"
+#include "vtge_shared_variables.hpp"
 #ifdef NDEBUG
     const bool enableValidationLayers = false;
 #else
@@ -37,17 +39,14 @@
 class TestEngine{
     public:
         void run(){
-            initWindow();
-            initVulkan();
-            loop();
-            cleanup();
-
+            Graphics g(640,320,enableValidationLayers,"");
+            loop(g);
         }
 
     private: 
-
-        
-
+        float                           fps = 0.0f;
+        std::string windowTitle = "VTGE | FPS:";
+/*
         void initVulkan(){
             createInstance();//creates a vulkan instance
             setupDebugMessenger();
@@ -75,64 +74,28 @@ class TestEngine{
             createCommandBuffers();
             createSyncObjects();
         }
-
-        void loop(){
+*/
+        void loop(Graphics g){
             auto start = std::chrono::high_resolution_clock::now();
-            while (!glfwWindowShouldClose(window)) {
+            int frameCount = 0;
+            while (!glfwWindowShouldClose(g.window)) {
                     glfwPollEvents();
-                    drawFrame();
+                    g.drawFrame();
                     auto end = std::chrono::high_resolution_clock::now();
                     auto duration = (float)std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
                     duration = duration/1000.0f;
                     frameCount ++;
                     if(duration >= 1 ){
                         fps = frameCount/duration;
-                        glfwSetWindowTitle(window, (windowTitle + std::to_string(fps)).c_str());
+                        glfwSetWindowTitle(g.window, (windowTitle + std::to_string(fps)).c_str());
                         start = std::chrono::high_resolution_clock::now();
                         frameCount = 0;
                     }
-                    
             }
-            vkDeviceWaitIdle(device);
+            vkDeviceWaitIdle(*sharedVariables::device);
         }       
 
-        
-        
-
-        
-
-        
-
-        
-
-
-
-
-        VkCommandBuffer beginSingleTimeCommands(VkCommandPool pool){
-            VkCommandBufferAllocateInfo allocInfo{};
-            allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-            allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-            allocInfo.commandPool = pool;
-            allocInfo.commandBufferCount = 1;
-            VkCommandBuffer commandBuffer;
-            vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
-            VkCommandBufferBeginInfo beginInfo{};
-            beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-            beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-            vkBeginCommandBuffer(commandBuffer, &beginInfo);
-            return commandBuffer;
-        }
-
-        void endSingleTimeCommands(VkCommandBuffer commandBuffer, VkCommandPool pool, VkQueue queue){
-            vkEndCommandBuffer(commandBuffer);
-            VkSubmitInfo submitInfo{};
-            submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-            submitInfo.commandBufferCount = 1;
-            submitInfo.pCommandBuffers = &commandBuffer;
-            vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
-            vkQueueWaitIdle(queue);
-            vkFreeCommandBuffers(device, pool, 1, &commandBuffer);
-        }   
+           
 
     
 

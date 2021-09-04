@@ -7,6 +7,8 @@
         VkDevice *device;
         VkPhysicalDevice *physicalDevice;
         VkSampleCountFlagBits msaaSamples;
+        VkQueue *transferQueue, *graphicsQueue;
+        VkCommandPool *transferCommandPool, *graphicsCommandPool;
         VkCommandBuffer *transferCommandBuffer, *graphicsCommandBuffer;
         QueueFamilyIndices indices;
         bool enableValidationLayers;

@@ -28,7 +28,7 @@ namespace buffer{
         allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
         allocInfo.allocationSize = memRequirements.size;
         allocInfo.memoryTypeIndex = getterChecker::findMemoryType(memRequirements.memoryTypeBits,
-            properties, *sharedVariables::physicalDevice);
+            properties);
 
         //replace vkAllocateMemory with either a custom memory allocator or use VulkanMemoryAllocator
         if (vkAllocateMemory(*sharedVariables::device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
@@ -54,11 +54,11 @@ namespace buffer{
         stagingBuffers.push_back(buffer);
     }
 
-    void cleanupStagingBuffers(VkDevice device){
+    void cleanupStagingBuffers(){
         int stagingBufferCount = stagingBuffersMemory.size();
         for(int i = 0; i < stagingBufferCount; i++){
-            vkDestroyBuffer(device, stagingBuffers[i], nullptr);
-            vkFreeMemory(device, stagingBuffersMemory[i], nullptr);
+            vkDestroyBuffer(*sharedVariables::device, stagingBuffers[i], nullptr);
+            vkFreeMemory(*sharedVariables::device, stagingBuffersMemory[i], nullptr);
         }
     }
 
