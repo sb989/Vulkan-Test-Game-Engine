@@ -1,6 +1,12 @@
 #ifndef __VTGE_VERTEX_HPP__
 #define __VTGE_VERTEX_HPP__
-
+#define GLFW_INCLUDE_VULKAN
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#define GLM_ENABLE_EXPERIMENTAL
+#include<glm/glm.hpp>
+#include <GLFW/glfw3.h>
+#include <array>
 struct Vertex {
     
     glm::vec3 pos;

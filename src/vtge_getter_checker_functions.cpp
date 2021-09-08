@@ -1,20 +1,15 @@
-#ifndef __VTGE_GETTER_CHECKER_HPP__
-#define __VTGE_GETTER_CHECKER_HPP__
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
+#include "vtge_getter_and_checker_functions.hpp"
 #include <stdexcept>
 #include <set>
-#include <string>
-#include <cstring>
-#include <vector>
-#include <fstream>
-#include "vtge_queuefamilyindices.hpp"
-#include "vtge_swapchain.hpp"
-#include "vtge_shared_variables.hpp"
+
+extern VkPhysicalDevice physicalDevice;
+extern QueueFamilyIndices indices;
+extern bool enableValidationLayers;
+
 namespace getterChecker{
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties){
         VkPhysicalDeviceMemoryProperties memProperties;
-        vkGetPhysicalDeviceMemoryProperties(*sharedVariables::physicalDevice, &memProperties);
+        vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
         for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++){
             if ((typeFilter & (1 << i)) && 
             (memProperties.memoryTypes[i].propertyFlags & properties) == properties){
@@ -34,7 +29,7 @@ namespace getterChecker{
 
     VkSampleCountFlagBits getMaxUsableSampleCount(){
         VkPhysicalDeviceProperties physicalDeviceProperties;
-        vkGetPhysicalDeviceProperties(*sharedVariables::physicalDevice, &physicalDeviceProperties);
+        vkGetPhysicalDeviceProperties(physicalDevice, &physicalDeviceProperties);
         VkSampleCountFlags counts = physicalDeviceProperties.limits.framebufferColorSampleCounts &
             physicalDeviceProperties.limits.framebufferDepthSampleCounts;
         if(counts & VK_SAMPLE_COUNT_64_BIT) { return VK_SAMPLE_COUNT_64_BIT;}
@@ -51,7 +46,7 @@ namespace getterChecker{
         VkFormatFeatureFlags features){
         for(VkFormat format: candidates){
             VkFormatProperties props;
-            vkGetPhysicalDeviceFormatProperties(*sharedVariables::physicalDevice, format, &props);
+            vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &props);
             if(tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features){
                 return format;
             } else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features){
@@ -72,21 +67,21 @@ namespace getterChecker{
         */
         //for the time being any gpu that can run vulkan is good enough so just return true
         VkPhysicalDeviceFeatures supportedFeatures;
-        vkGetPhysicalDeviceFeatures(*sharedVariables::physicalDevice, &supportedFeatures);
+        vkGetPhysicalDeviceFeatures(physicalDevice, &supportedFeatures);
         bool extensionsSupported = checkDeviceExtensionSupport(deviceExtensions);
         bool swapChainAdequate = false;
         if(extensionsSupported){
             swapChainAdequate = !swapChainSupport.formats.empty() && 
             !swapChainSupport.presentModes.empty();
         }
-        return sharedVariables::indices.isComplete() && extensionsSupported && swapChainAdequate && supportedFeatures.samplerAnisotropy;
+        return indices.isComplete() && extensionsSupported && swapChainAdequate && supportedFeatures.samplerAnisotropy;
     }
 
     bool checkDeviceExtensionSupport(std::vector<const char*> deviceExtensions){
         uint32_t extensionCount;
-        vkEnumerateDeviceExtensionProperties(*sharedVariables::physicalDevice, nullptr, &extensionCount, nullptr);
+        vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, nullptr);
         std::vector<VkExtensionProperties> availableExtensions(extensionCount);
-        vkEnumerateDeviceExtensionProperties(*sharedVariables::physicalDevice, nullptr, &extensionCount,
+        vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount,
             availableExtensions.data());
         std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
 
@@ -122,13 +117,13 @@ namespace getterChecker{
         const char** glfwExtensions;
         glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
         std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
-        if (sharedVariables::enableValidationLayers) {
+        if (enableValidationLayers) {
             extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
         }
         return extensions;
     }
 
-    static std::vector<char> readFile(const std::string& filename) {
+    std::vector<char> readFile(const std::string& filename) {
         std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
         if(!file.is_open()) {
@@ -144,5 +139,3 @@ namespace getterChecker{
     }
 
 }
-
-#endif

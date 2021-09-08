@@ -7,9 +7,12 @@
 #include "vtge_vertex.hpp"
 #include <optional>
 #include "vtge_queuefamilyindices.hpp"
-#include "vtge_swapchain.hpp"
-#include "vtge_framebuffer.hpp"
 #include "vtge_model.hpp"
+class Swapchain;
+class Framebuffer;
+
+
+
 const std::vector<const char*> deviceExtensions = {
             VK_KHR_SWAPCHAIN_EXTENSION_NAME
         };
@@ -22,9 +25,11 @@ class Graphics{
     public:
         Graphics(uint32_t width, uint32_t height,
             bool enableValidationLayers, std::string windowTitle);
+        ~Graphics();
         GLFWwindow                      *window;
         void drawFrame();
     private:
+        
         const int                       MAX_FRAMES_IN_FLIGHT = 2;
         bool                            framebufferResized = false;
         size_t                          currentFrame = 0;
@@ -36,22 +41,18 @@ class Graphics{
         float                           xVel, yVel, zVel;
         uint32_t                        mipLevels;
         uint32_t                        WIDTH, HEIGHT;
-        std::string                     windowTitle;
         bool                            enableValidationLayers;
         VkInstance                      instance;
-        VkDevice                        device;
-        VkQueue                         graphicsQueue, presentQueue, transferQueue;
+        
         VkRenderPass                    renderPass;
         VkDescriptorSetLayout           descriptorSetLayout;
         VkPipelineLayout                pipelineLayout;
         VkPipeline                      graphicsPipeline;
-        VkCommandPool                   graphicsCommandPool, transferCommandPool;
         VkDescriptorPool                descriptorPool;
         VkCommandBuffer                 graphicsCommandBuffer, transferCommandBuffer;
         
         Swapchain                       *swapchain;
         Framebuffer                     *framebuffer;
-        QueueFamilyIndices              indices;
         VkDebugUtilsMessengerEXT        debugMessenger;
         VkSurfaceKHR                    surface;
 
@@ -64,8 +65,6 @@ class Graphics{
         std::vector<VkFence>            inFlightFences, imagesInFlight;
 
         std::vector<Model*>             modelList;
-        VkSampleCountFlagBits           msaaSamples = VK_SAMPLE_COUNT_1_BIT;
-        VkPhysicalDevice                physicalDevice = VK_NULL_HANDLE;
 
         
         void setUpWindow();

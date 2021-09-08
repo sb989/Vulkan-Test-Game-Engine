@@ -11,6 +11,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include "vtge_getter_and_checker_functions.hpp"
 #include <type_traits>
+#include "vtge_swapchain.hpp"
+#include "vtge_framebuffer.hpp"
 #define GLFW_INCLUDE_VULKAN
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -23,13 +25,20 @@ have the main program pass in the framebufferresizecallback
 if the framebufferresizecallback is null dont set it
 */
 
+
+VkDevice                        device;
+VkSampleCountFlagBits           msaaSamples = VK_SAMPLE_COUNT_1_BIT;
+VkQueue                         graphicsQueue, presentQueue, transferQueue;
+VkCommandPool                   graphicsCommandPool, transferCommandPool;
+QueueFamilyIndices              indices;
+VkCommandBuffer                 transferCommandBuffer, graphicsCommandBuffer;
+VkPhysicalDevice                physicalDevice = VK_NULL_HANDLE;
 Graphics::Graphics(uint32_t width, uint32_t height,bool enableValidationLayers,
     std::string windowTitle){
         WIDTH = width;
         HEIGHT = height;
-        this->enableValidationLayers = enableValidationLayers;
+        //this->enableValidationLayers = enableValidationLayers;
         this->windowTitle = windowTitle;
-        sharedVariables::enableValidationLayers = enableValidationLayers;
         setUpWindow();
         setUpGraphics();
 }
@@ -86,7 +95,6 @@ void Graphics::recreateSwapchain(){
     createRenderPass();
     createGraphicsPipeline();
     graphicsCommandBuffer = beginSingleTimeCommands(graphicsCommandPool);
-    sharedVariables::graphicsCommandBuffer = &graphicsCommandBuffer;
     framebuffer = new Framebuffer(swapchain, &renderPass);
     for(int i = 0; i<modelList.size(); i++){
         modelList[i]->recreateUBufferPoolSets(swapchain);
@@ -109,25 +117,15 @@ void Graphics::setUpGraphics(){
     debug::setupDebugMessenger(instance, debugMessenger);
     createSurface();
     pickPhysicalDevice();
-    sharedVariables::physicalDevice = &physicalDevice;
-    sharedVariables::msaaSamples = msaaSamples;
     createLogicalDevice();
-    sharedVariables::device = &device;
-    sharedVariables::graphicsQueue = &graphicsQueue;
-    sharedVariables::transferQueue = &transferQueue;
     indices = findQueueFamilies(physicalDevice);
-    sharedVariables::indices = indices;
     swapchain = new Swapchain(&surface, window);
     createRenderPass();
     createDescriptorSetLayout();
     createGraphicsPipeline();
     createCommandPool();
-    sharedVariables::graphicsCommandPool = &graphicsCommandPool;
-    sharedVariables::transferCommandPool = & transferCommandPool;
     graphicsCommandBuffer = beginSingleTimeCommands(graphicsCommandPool);
     transferCommandBuffer = beginSingleTimeCommands(transferCommandPool);
-    sharedVariables::graphicsCommandBuffer = &graphicsCommandBuffer;
-    sharedVariables::transferCommandBuffer = &transferCommandBuffer;
     framebuffer = new Framebuffer(swapchain, &renderPass);
     createModel(MODEL_PATH,TEXTURE_PATH);
     endSingleTimeCommands(graphicsCommandBuffer, graphicsCommandPool, graphicsQueue);

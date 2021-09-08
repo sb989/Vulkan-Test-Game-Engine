@@ -1,11 +1,17 @@
 #include "vtge_texture.hpp"
 #define GLFW_INCLUDE_VULKAN
+#define STB_IMAGE_IMPLEMENTATION
+
 #include <GLFW/glfw3.h>
 #include <stb_image.h>
 #include <stdexcept>
 #include <cmath>
 #include "vtge_buffer_helper_functions.hpp"
 #include "vtge_image.hpp"
+extern VkDevice device;
+extern VkPhysicalDevice physicalDevice;
+extern VkCommandBuffer graphicsCommandBuffer, transferCommandBuffer;
+extern VkQueue transferQueue;
 
  Texture::Texture(std::string texturePath){
     this->texturePath = texturePath;
@@ -15,10 +21,10 @@
 }
 
 Texture::~Texture(){
-    vkDestroySampler(*sharedVariables::device, textureSampler, nullptr);
-    vkDestroyImageView(*sharedVariables::device, textureImageView, nullptr);
-    vkDestroyImage(*sharedVariables::device, textureImage, nullptr);
-    vkFreeMemory(*sharedVariables::device, textureImageMemory, nullptr);
+    vkDestroySampler(device, textureSampler, nullptr);
+    vkDestroyImageView(device, textureImageView, nullptr);
+    vkDestroyImage(device, textureImage, nullptr);
+    vkFreeMemory(device, textureImageMemory, nullptr);
 }
 
 void Texture::createTextureImage(){
@@ -36,9 +42,9 @@ void Texture::createTextureImage(){
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
         stagingBuffer, stagingBufferMemory);
     void *data;
-    vkMapMemory(*sharedVariables::device, stagingBufferMemory, 0, imageSize, 0, &data);
+    vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
     memcpy(data, pixels, static_cast<size_t>(imageSize));
-    vkUnmapMemory(*sharedVariables::device, stagingBufferMemory);
+    vkUnmapMemory(device, stagingBufferMemory);
     stbi_image_free(pixels);
     //transferCommandBuffer = beginSingleTimeCommands(transferCommandPool);
     //graphicsCommandBuffer = beginSingleTimeCommands(graphicsCommandPool);
@@ -46,7 +52,7 @@ void Texture::createTextureImage(){
         VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
     image::transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB,
-        VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, *sharedVariables::transferCommandBuffer, *sharedVariables::transferQueue, mipLevels);
+        VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, transferCommandBuffer, transferQueue, mipLevels);
     copyBufferToImage(stagingBuffer, textureImage, static_cast<uint32_t>(texWidth),
         static_cast<uint32_t>(texHeight));
     /*
@@ -55,7 +61,7 @@ void Texture::createTextureImage(){
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, graphicsCommandBuffer, graphicsQueue, 1);
     */
-    generateMipmaps(textureImage, VK_FORMAT_R8G8B8A8_SRGB, *sharedVariables::graphicsCommandBuffer, texWidth, texHeight, mipLevels);
+    generateMipmaps(textureImage, VK_FORMAT_R8G8B8A8_SRGB, graphicsCommandBuffer, texWidth, texHeight, mipLevels);
     //endSingleTimeCommands(transferCommandBuffer, transferCommandPool, transferQueue);
     //endSingleTimeCommands(graphicsCommandBuffer, graphicsCommandPool, graphicsQueue);
     //vkDestroyBuffer(device, stagingBuffer, nullptr);
@@ -65,7 +71,7 @@ void Texture::createTextureImage(){
 void Texture::generateMipmaps(VkImage image, VkFormat imageFormat, VkCommandBuffer commandBuffer, int32_t texWidth, int32_t texHeight, uint32_t mipLevels){
     VkFormatProperties formatProperties;
     //check if it supports linear blitting
-    vkGetPhysicalDeviceFormatProperties(*sharedVariables::physicalDevice, imageFormat, &formatProperties);
+    vkGetPhysicalDeviceFormatProperties(physicalDevice, imageFormat, &formatProperties);
     if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)){
         throw std::runtime_error("texture image format does not support lineawr blitting!");
     }
@@ -156,7 +162,7 @@ void Texture::createTextureSampler(){
     samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
     samplerInfo.anisotropyEnable = VK_TRUE;
     VkPhysicalDeviceProperties properties{};
-    vkGetPhysicalDeviceProperties(*sharedVariables::physicalDevice, &properties);
+    vkGetPhysicalDeviceProperties(physicalDevice, &properties);
     samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
     samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
     samplerInfo.unnormalizedCoordinates = VK_FALSE;
@@ -166,7 +172,7 @@ void Texture::createTextureSampler(){
     samplerInfo.mipLodBias = 0.0f;
     samplerInfo.minLod = 0.0f;
     samplerInfo.maxLod = static_cast<float>(mipLevels);
-    if(vkCreateSampler(*sharedVariables::device, &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS){
+    if(vkCreateSampler(device, &samplerInfo, nullptr, &textureSampler) != VK_SUCCESS){
         throw std::runtime_error("failed to create texture sampler!");
     }
 }
@@ -188,7 +194,7 @@ void Texture::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, 
         1
     };
     vkCmdCopyBufferToImage(
-        *sharedVariables::transferCommandBuffer,
+        transferCommandBuffer,
         buffer,
         image,
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,

@@ -1,7 +1,11 @@
 #include "vtge_swapchain.hpp"
 #include <stdexcept>
 #include "vtge_image.hpp"
-#include "vtge_shared_variables.hpp"
+#include "vtge_getter_and_checker_functions.hpp"
+extern VkDevice device;
+extern VkPhysicalDevice physicalDevice;
+extern QueueFamilyIndices indices;
+
 Swapchain::Swapchain(VkSurfaceKHR *surface, GLFWwindow *window){
     this->surface = surface;
     this->window = window;
@@ -11,9 +15,9 @@ Swapchain::Swapchain(VkSurfaceKHR *surface, GLFWwindow *window){
 
 Swapchain::~Swapchain(){
     for (size_t i = 0; i < swapchainImageViews.size(); i++) {
-        vkDestroyImageView(*sharedVariables::device, swapchainImageViews[i], nullptr);
+        vkDestroyImageView(device, swapchainImageViews[i], nullptr);
     }
-    vkDestroySwapchainKHR(*sharedVariables::device, swapchain, nullptr);
+    vkDestroySwapchainKHR(device, swapchain, nullptr);
 }
 
 
@@ -103,9 +107,9 @@ void Swapchain::createSwapchain(){
     createInfo.imageExtent = extent;
     createInfo.imageArrayLayers = 1;
     createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-    uint32_t queueFamilyIndices[] = {sharedVariables::indices.graphicsFamily.value(),
-        sharedVariables::indices.presentFamily.value()};
-    if (sharedVariables::indices.graphicsFamily != sharedVariables::indices.presentFamily) {
+    uint32_t queueFamilyIndices[] = {indices.graphicsFamily.value(),
+        indices.presentFamily.value()};
+    if (indices.graphicsFamily != indices.presentFamily) {
         createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
         createInfo.queueFamilyIndexCount = 2;
         createInfo.pQueueFamilyIndices = queueFamilyIndices;
@@ -119,12 +123,12 @@ void Swapchain::createSwapchain(){
     createInfo.presentMode = presentMode;
     createInfo.clipped = VK_TRUE;
     createInfo.oldSwapchain = VK_NULL_HANDLE;
-    if (vkCreateSwapchainKHR(*sharedVariables::device, &createInfo, nullptr, &swapchain) != VK_SUCCESS) {
+    if (vkCreateSwapchainKHR(device, &createInfo, nullptr, &swapchain) != VK_SUCCESS) {
         throw std::runtime_error("failed to create swap chain!");
     }
-    vkGetSwapchainImagesKHR(*sharedVariables::device, swapchain, &imageCount, nullptr);
+    vkGetSwapchainImagesKHR(device, swapchain, &imageCount, nullptr);
     swapchainImages.resize(imageCount);
-    vkGetSwapchainImagesKHR(*sharedVariables::device, swapchain, &imageCount, swapchainImages.data());
+    vkGetSwapchainImagesKHR(device, swapchain, &imageCount, swapchainImages.data());
     swapchainImageFormat = surfaceFormat.format;
     swapchainExtent = extent;
 }
@@ -139,22 +143,22 @@ void Swapchain::createImageViews(){
 
 SwapchainSupportDetails Swapchain::querySwapchainSupport() {
         SwapchainSupportDetails details;
-        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(*sharedVariables::physicalDevice, *surface, &details.capabilities);
+        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, *surface, &details.capabilities);
         uint32_t formatCount;
-        vkGetPhysicalDeviceSurfaceFormatsKHR(*sharedVariables::physicalDevice, *surface, &formatCount, nullptr);
+        vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, *surface, &formatCount, nullptr);
 
         if(formatCount !=0){
             details.formats.resize(formatCount);
-            vkGetPhysicalDeviceSurfaceFormatsKHR(*sharedVariables::physicalDevice, *surface, &formatCount, 
+            vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, *surface, &formatCount, 
             details.formats.data());
         }
 
         uint32_t presentModeCount;
-        vkGetPhysicalDeviceSurfacePresentModesKHR(*sharedVariables::physicalDevice, *surface, &presentModeCount, nullptr);
+        vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, *surface, &presentModeCount, nullptr);
 
         if(presentModeCount != 0){
             details.presentModes.resize(presentModeCount);
-            vkGetPhysicalDeviceSurfacePresentModesKHR(*sharedVariables::physicalDevice, *surface, &presentModeCount, 
+            vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, *surface, &presentModeCount, 
             details.presentModes.data());
         }
         return details;

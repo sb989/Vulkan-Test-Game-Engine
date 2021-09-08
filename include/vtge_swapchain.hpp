@@ -5,15 +5,14 @@
 #include <GLFW/glfw3.h>
 #include "vtge_queuefamilyindices.hpp"
 
-struct SwapchainSupportDetails {
-    VkSurfaceCapabilitiesKHR capabilities;
-    std::vector<VkSurfaceFormatKHR> formats;
-    std::vector<VkPresentModeKHR> presentModes;
-};
+struct SwapchainSupportDetails;
+
+
 
 class Swapchain{
     public:
         Swapchain(VkSurfaceKHR *surface, GLFWwindow *window);
+        ~Swapchain();
         SwapchainSupportDetails querySwapchainSupport();
         VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& 
             availableFormats);

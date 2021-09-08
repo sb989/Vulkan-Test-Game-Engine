@@ -1,17 +1,11 @@
-#ifndef __VTGE_DEBUG_HELPER_FUNCTIONS_HPP__
-#define __VTGE_DEBUG_HELPER_FUNCTIONS_HPP__
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
-#include <iostream>
-#include "vtge_shared_variables.hpp"
-
-namespace debug{
+#include "vtge_debug_helper_functions.hpp"
+extern bool enableValidationLayers;
+namespace debug{  
     void setupDebugMessenger(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger) {
-        if (!sharedVariables::enableValidationLayers) return;
+        if (!enableValidationLayers) return;
 
         VkDebugUtilsMessengerCreateInfoEXT createInfo;
         populateDebugMessengerCreateInfo(createInfo);
-
         if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS) {
             throw std::runtime_error("failed to set up debug messenger!");
         }
@@ -50,5 +44,3 @@ namespace debug{
         return VK_FALSE;
     }
 }  
-
-#endif

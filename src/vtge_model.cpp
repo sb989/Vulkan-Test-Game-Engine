@@ -1,9 +1,12 @@
+#define TINYOBJLOADER_IMPLEMENTATION
 #include <vtge_model.hpp>
 #include <vtge_texture.hpp>
+#include <vtge_swapchain.hpp>
 #include <array>
+#include <cstring>
 #include <tiny_obj_loader.h>
 #include <unordered_map>
-#define TINYOBJLOADER_IMPLEMENTATION
+extern VkDevice device;
 
 Model::Model(std::string modelPath, std::string texturePath, Swapchain *swapchain){
     this->modelPath = modelPath;
@@ -20,11 +23,11 @@ Model::Model(std::string modelPath, std::string texturePath, Swapchain *swapchai
 
 Model::~Model(){
     delete texture;
-    vkDestroyDescriptorSetLayout(*sharedVariables::device, descriptorSetLayout, nullptr);
-    vkDestroyBuffer(*sharedVariables::device, indexBuffer, nullptr);
-    vkFreeMemory(*sharedVariables::device, indexBufferMemory, nullptr);
-    vkDestroyBuffer(*sharedVariables::device, vertexBuffer, nullptr);
-    vkFreeMemory(*sharedVariables::device, vertexBufferMemory, nullptr);
+    vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
+    vkDestroyBuffer(device, indexBuffer, nullptr);
+    vkFreeMemory(device, indexBufferMemory, nullptr);
+    vkDestroyBuffer(device, vertexBuffer, nullptr);
+    vkFreeMemory(device, vertexBufferMemory, nullptr);
 }
 
 void Model::recreateUBufferPoolSets(Swapchain *swapchain){
@@ -59,7 +62,7 @@ void Model::createDescriptorPool(){
     poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
     poolInfo.pPoolSizes = poolSizes.data();
     poolInfo.maxSets = static_cast<uint32_t>(swapchain->swapchainImages.size());
-    if(vkCreateDescriptorPool(*sharedVariables::device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS){
+    if(vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS){
         throw std::runtime_error("failed to create descriptor pool!");
     }            
 }
@@ -72,7 +75,7 @@ void Model::createDescriptorSets(){
     allocInfo.descriptorSetCount = static_cast<uint32_t>(swapchain->swapchainImages.size());
     allocInfo.pSetLayouts = layouts.data();
     descriptorSets.resize(swapchain->swapchainImages.size());
-    if (vkAllocateDescriptorSets(*sharedVariables::device, &allocInfo, descriptorSets.data()) != VK_SUCCESS){
+    if (vkAllocateDescriptorSets(device, &allocInfo, descriptorSets.data()) != VK_SUCCESS){
         throw std::runtime_error("failed to allocate descriptor sets");
     }
 
@@ -103,7 +106,7 @@ void Model::createDescriptorSets(){
         descriptorWrites[1].descriptorCount = 1;
         descriptorWrites[1].pImageInfo = &imageInfo;
         
-        vkUpdateDescriptorSets(*sharedVariables::device, static_cast<uint32_t>(descriptorWrites.size()),
+        vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()),
             descriptorWrites.data(), 0, nullptr);
     }
 }
@@ -116,17 +119,17 @@ void Model::createVertexBuffer(){
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
         stagingBuffer, stagingBufferMemory);
     void *data;
-    vkMapMemory(*sharedVariables::device, stagingBufferMemory, 0, bufferSize, 0, &data);
+    vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
     memcpy(data, vertices.data(), (size_t) bufferSize);
-    vkUnmapMemory(*sharedVariables::device, stagingBufferMemory);
+    vkUnmapMemory(device, stagingBufferMemory);
     buffer::createBuffer(bufferSize,  VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         vertexBuffer, vertexBufferMemory);
     //beginSingleTimeCommands(transferCommandPool);
     buffer::copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
     //endSingleTimeCommands(transferCommandBuffer, transferCommandPool, transferQueue);
-    //vkDestroyBuffer(*sharedVariables::device, stagingBuffer, nullptr);
-    //vkFreeMemory(*sharedVariables::device, stagingBufferMemory, nullptr);
+    //vkDestroyBuffer(device, stagingBuffer, nullptr);
+    //vkFreeMemory(device, stagingBufferMemory, nullptr);
 }
 
 void Model::createIndexBuffer(){
@@ -139,9 +142,9 @@ void Model::createIndexBuffer(){
         stagingBuffer, stagingBufferMemory);
 
     void* data;
-    vkMapMemory(*sharedVariables::device, stagingBufferMemory, 0, bufferSize, 0, &data);
+    vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
     memcpy(data, vertexIndices.data(), (size_t) bufferSize);
-    vkUnmapMemory(*sharedVariables::device, stagingBufferMemory);
+    vkUnmapMemory(device, stagingBufferMemory);
     buffer::createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
     //beginSingleTimeCommands(transferCommandPool);

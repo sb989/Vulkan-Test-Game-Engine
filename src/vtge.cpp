@@ -1,40 +1,19 @@
 #define GLFW_INCLUDE_VULKAN
-#define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#define STB_IMAGE_IMPLEMENTATION
-#define GLM_ENABLE_EXPERIMENTAL
-#include<type_traits>
-#include <glm/gtx/hash.hpp>
+
 #include <GLFW/glfw3.h>
 #include <iostream>
-#include <vector>
-#include <stdexcept>
-#include <cstdlib>
-#include <cstring>
-#include <optional>
-#include <set>
-#include <cstdint> // Necessary for UINT32_MAX
-#include <algorithm> // Necessary for std::min/std::max
-#include <fstream>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <chrono>
-#include <array>
-#include <stb_image.h>
-#include <tiny_obj_loader.h>
-#include <unordered_map>
 #include <chrono>
 #include "vtge_graphics.hpp"
-#include "vtge_shared_variables.hpp"
+
+
+
 #ifdef NDEBUG
-    const bool enableValidationLayers = false;
+    bool enableValidationLayers = false;
 #else
-    const bool enableValidationLayers = true;
+    bool enableValidationLayers = true;
 #endif
 
-
-
-
+extern VkDevice device;
 
 class TestEngine{
     public:
@@ -92,7 +71,7 @@ class TestEngine{
                         frameCount = 0;
                     }
             }
-            vkDeviceWaitIdle(*sharedVariables::device);
+            vkDeviceWaitIdle(device);
         }       
 
            

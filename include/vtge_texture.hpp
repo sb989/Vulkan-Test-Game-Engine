@@ -1,6 +1,10 @@
 #ifndef __VTGE_TEXTURE_HPP__
 #define __VTGE_TEXTURE_HPP__
+#define GLFW_INCLUDE_VULKAN
+#include <GLFW/glfw3.h>
 #include <string>
+
+
 class Texture{
     public:
         VkImage textureImage;
@@ -8,6 +12,7 @@ class Texture{
         VkDeviceMemory textureImageMemory;
         VkSampler textureSampler;
         Texture(std::string texturePath);
+        ~Texture();
     private:
         std::string texturePath;
         int texWidth;

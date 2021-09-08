@@ -1,17 +1,16 @@
-#ifndef __VTGE_BUFFER_HELPER_FUNCTIONS_HPP_
-#define __VTGE_BUFFER_HELPER_FUNCTIONS_HPP__
-#define GLFW_INCLUDE_VULKAN
-#include<GLFW/glfw3.h>
-#include "vtge_queuefamilyindices.hpp"
+#include "vtge_buffer_helper_functions.hpp"
 #include "vtge_getter_and_checker_functions.hpp"
-#include "vtge_shared_variables.hpp"
-namespace buffer{
 
-    std::vector<VkDeviceMemory> stagingBuffersMemory = {0};
-    std::vector<VkBuffer> stagingBuffers = {0};
+std::vector<VkDeviceMemory> stagingBuffersMemory = {0};
+std::vector<VkBuffer> stagingBuffers = {0};
+extern QueueFamilyIndices indices;
+extern VkDevice device;
+extern VkCommandBuffer transferCommandBuffer;
+namespace buffer{
+    
     void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties,
         VkBuffer& buffer, VkDeviceMemory& bufferMemory){
-        uint32_t queueIndices []= {sharedVariables::indices.graphicsFamily.value(), sharedVariables::indices.transferFamily.value()};
+        uint32_t queueIndices []= {indices.graphicsFamily.value(), indices.transferFamily.value()};
         VkBufferCreateInfo bufferInfo{};
         bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
         bufferInfo.size = size;
@@ -19,11 +18,11 @@ namespace buffer{
         bufferInfo.sharingMode = VK_SHARING_MODE_CONCURRENT;
         bufferInfo.queueFamilyIndexCount = 2;
         bufferInfo.pQueueFamilyIndices = queueIndices;
-        if (vkCreateBuffer(*sharedVariables::device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS){
+        if (vkCreateBuffer(device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS){
             throw std::runtime_error("failed to create buffer!");
         }
         VkMemoryRequirements memRequirements;
-        vkGetBufferMemoryRequirements(*sharedVariables::device, buffer, &memRequirements);
+        vkGetBufferMemoryRequirements(device, buffer, &memRequirements);
         VkMemoryAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
         allocInfo.allocationSize = memRequirements.size;
@@ -31,10 +30,10 @@ namespace buffer{
             properties);
 
         //replace vkAllocateMemory with either a custom memory allocator or use VulkanMemoryAllocator
-        if (vkAllocateMemory(*sharedVariables::device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
+        if (vkAllocateMemory(device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
             throw std::runtime_error("failed to allocate buffer memory!");
         }
-        vkBindBufferMemory(*sharedVariables::device, buffer, bufferMemory, 0);
+        vkBindBufferMemory(device, buffer, bufferMemory, 0);
     }
 
     void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size){
@@ -43,7 +42,7 @@ namespace buffer{
         copyRegion.srcOffset = 0;
         copyRegion.dstOffset = 0;
         copyRegion.size = size;
-        vkCmdCopyBuffer(*sharedVariables::transferCommandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+        vkCmdCopyBuffer(transferCommandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
         //endSingleTimeCommands(commandBuffer, transferCommandPool, transferQueue);
     }
 
@@ -57,10 +56,9 @@ namespace buffer{
     void cleanupStagingBuffers(){
         int stagingBufferCount = stagingBuffersMemory.size();
         for(int i = 0; i < stagingBufferCount; i++){
-            vkDestroyBuffer(*sharedVariables::device, stagingBuffers[i], nullptr);
-            vkFreeMemory(*sharedVariables::device, stagingBuffersMemory[i], nullptr);
+            vkDestroyBuffer(device, stagingBuffers[i], nullptr);
+            vkFreeMemory(device, stagingBuffersMemory[i], nullptr);
         }
     }
 
 }
-#endif

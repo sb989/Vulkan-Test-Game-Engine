@@ -3,8 +3,6 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
-#include "vtge_texture.hpp"
-#include "vtge_swapchain.hpp"
 #include "vtge_buffer_helper_functions.hpp"
 #include <vector>
 #include "vtge_vertex.hpp"
@@ -20,7 +18,8 @@ namespace std {
         }
     };
 }
-
+class Texture;
+class Swapchain;
 
 struct UniformBufferObject {
     alignas(16) glm::mat4 model;
@@ -28,9 +27,11 @@ struct UniformBufferObject {
     alignas(16) glm::mat4 proj;
 };
 
+
 class Model{
     public:
         Model(std::string modelPath, std::string texturePath, Swapchain *swapchain);
+        ~Model();
         void recreateUBufferPoolSets(Swapchain *swapchain);
         std::vector<VkBuffer> uniformBuffers;
         std::vector<VkDeviceMemory> uniformBuffersMemory;
