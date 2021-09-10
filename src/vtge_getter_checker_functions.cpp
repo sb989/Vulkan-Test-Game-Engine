@@ -1,6 +1,7 @@
 #include "vtge_getter_and_checker_functions.hpp"
 #include <stdexcept>
 #include <set>
+#include <iostream>
 
 extern VkPhysicalDevice physicalDevice;
 extern QueueFamilyIndices indices;
@@ -56,7 +57,7 @@ namespace getterChecker{
         throw std::runtime_error("failed to find supported format!");
     }
 
-    bool isDeviceSuitable(SwapchainSupportDetails swapChainSupport, std::vector<const char*> deviceExtensions){
+    bool isDeviceSuitable(VkPhysicalDevice device, SwapchainSupportDetails swapchainSupport, std::vector<const char*> deviceExtensions){
         /* example code of deciding if a device is suitable
         VkPhysicalDeviceProperties deviceProperties;
         vkGetPhysicalDeviceProperties(device, &deviceProperties);
@@ -67,21 +68,22 @@ namespace getterChecker{
         */
         //for the time being any gpu that can run vulkan is good enough so just return true
         VkPhysicalDeviceFeatures supportedFeatures;
-        vkGetPhysicalDeviceFeatures(physicalDevice, &supportedFeatures);
-        bool extensionsSupported = checkDeviceExtensionSupport(deviceExtensions);
-        bool swapChainAdequate = false;
+        vkGetPhysicalDeviceFeatures(device, &supportedFeatures);
+        bool extensionsSupported = checkDeviceExtensionSupport(device, deviceExtensions);
+        bool swapchainAdequate = false;
         if(extensionsSupported){
-            swapChainAdequate = !swapChainSupport.formats.empty() && 
-            !swapChainSupport.presentModes.empty();
+            swapchainAdequate = !swapchainSupport.formats.empty() && 
+            !swapchainSupport.presentModes.empty();
         }
-        return indices.isComplete() && extensionsSupported && swapChainAdequate && supportedFeatures.samplerAnisotropy;
+        std::cout<< indices.isComplete() << " " << extensionsSupported << " " << swapchainAdequate << " " << supportedFeatures.samplerAnisotropy << std::endl;
+        return indices.isComplete() && extensionsSupported && swapchainAdequate && supportedFeatures.samplerAnisotropy;
     }
 
-    bool checkDeviceExtensionSupport(std::vector<const char*> deviceExtensions){
+    bool checkDeviceExtensionSupport(VkPhysicalDevice device, std::vector<const char*> deviceExtensions){
         uint32_t extensionCount;
-        vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount, nullptr);
+        vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
         std::vector<VkExtensionProperties> availableExtensions(extensionCount);
-        vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &extensionCount,
+        vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount,
             availableExtensions.data());
         std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
 

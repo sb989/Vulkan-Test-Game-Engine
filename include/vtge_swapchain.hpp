@@ -3,17 +3,15 @@
 #define GLFW_INCLUDE_VULKAN
 #include <vector>
 #include <GLFW/glfw3.h>
-#include "vtge_queuefamilyindices.hpp"
-
+#include "vtge_getter_and_checker_functions.hpp"
 struct SwapchainSupportDetails;
 
 
 
 class Swapchain{
     public:
-        Swapchain(VkSurfaceKHR *surface, GLFWwindow *window);
+        Swapchain(VkSurfaceKHR *surface, GLFWwindow *window, SwapchainSupportDetails swapchainSupport);
         ~Swapchain();
-        SwapchainSupportDetails querySwapchainSupport();
         VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& 
             availableFormats);
         VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
@@ -28,7 +26,7 @@ class Swapchain{
     private:
         void createSwapchain();
         void createImageViews(); 
-        
+        SwapchainSupportDetails         swapchainSupport;
         VkSurfaceKHR                    *surface;
         GLFWwindow                      *window;
         

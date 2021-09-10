@@ -11,7 +11,7 @@
 extern VkDevice device;
 extern VkPhysicalDevice physicalDevice;
 extern VkCommandBuffer graphicsCommandBuffer, transferCommandBuffer;
-extern VkQueue transferQueue;
+extern VkQueue graphicsQueue, transferQueue;
 
  Texture::Texture(std::string texturePath){
     this->texturePath = texturePath;
@@ -104,7 +104,7 @@ void Texture::generateMipmaps(VkImage image, VkFormat imageFormat, VkCommandBuff
         blit.srcOffsets[0] = {0, 0, 0};
         blit.srcOffsets[1] = {mipWidth, mipHeight, 1};
         blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        blit.srcSubresource.mipLevel = i -1;
+        blit.srcSubresource.mipLevel = i - 1;
         blit.srcSubresource.baseArrayLayer = 0;
         blit.srcSubresource.layerCount = 1;
         blit.dstOffsets[0] = {0, 0, 0};

@@ -39,13 +39,12 @@ class Model{
         VkDeviceMemory vertexBufferMemory, indexBufferMemory;
         std::vector<Vertex> vertices;
         std::vector<uint32_t> vertexIndices;
+        std::vector<VkDescriptorSet> descriptorSets;
     private:
         std::string modelPath, texturePath;
         Texture *texture;
         Swapchain *swapchain;
         VkDescriptorPool descriptorPool;
-        VkDescriptorSetLayout descriptorSetLayout;
-        std::vector<VkDescriptorSet> descriptorSets;
         void createUniformBuffers();
         void createDescriptorPool();
         void createDescriptorSets();

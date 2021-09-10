@@ -9,7 +9,6 @@
 #include <glm/glm.hpp>
 #include<glm/gtx/hash.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include "vtge_getter_and_checker_functions.hpp"
 #include <type_traits>
 #include "vtge_swapchain.hpp"
 #include "vtge_framebuffer.hpp"
@@ -33,8 +32,9 @@ VkCommandPool                   graphicsCommandPool, transferCommandPool;
 QueueFamilyIndices              indices;
 VkCommandBuffer                 transferCommandBuffer, graphicsCommandBuffer;
 VkPhysicalDevice                physicalDevice = VK_NULL_HANDLE;
-Graphics::Graphics(uint32_t width, uint32_t height,bool enableValidationLayers,
-    std::string windowTitle){
+VkDescriptorSetLayout           descriptorSetLayout;
+extern bool                     enableValidationLayers;
+Graphics::Graphics(uint32_t width, uint32_t height, std::string windowTitle){
         WIDTH = width;
         HEIGHT = height;
         //this->enableValidationLayers = enableValidationLayers;
@@ -90,7 +90,7 @@ void Graphics::recreateSwapchain(){
     }
     vkDeviceWaitIdle(device);
     cleanupSwapchain();
-    swapchain = new Swapchain(&surface, window);
+    swapchain = new Swapchain(&surface, window, swapchainSupport);
 
     createRenderPass();
     createGraphicsPipeline();
@@ -118,20 +118,27 @@ void Graphics::setUpGraphics(){
     createSurface();
     pickPhysicalDevice();
     createLogicalDevice();
-    indices = findQueueFamilies(physicalDevice);
-    swapchain = new Swapchain(&surface, window);
+    //indices = findQueueFamilies(physicalDevice);
+    swapchain = new Swapchain(&surface, window, swapchainSupport);
     createRenderPass();
     createDescriptorSetLayout();
     createGraphicsPipeline();
     createCommandPool();
     graphicsCommandBuffer = beginSingleTimeCommands(graphicsCommandPool);
     transferCommandBuffer = beginSingleTimeCommands(transferCommandPool);
+    std::cout<<"creating framebuffer now!"<<std::endl;
     framebuffer = new Framebuffer(swapchain, &renderPass);
-    createModel(MODEL_PATH,TEXTURE_PATH);
-    endSingleTimeCommands(graphicsCommandBuffer, graphicsCommandPool, graphicsQueue);
+    std::cout<<"finished creating framebuffer creating model now!"<<std::endl;
+    createModel(VIKING_MODEL_PATH,VIKING_TEXTURE_PATH);
+    std::cout<<"finisehd creating models!"<<std::endl;
+    //createModel(BANANA_MODEL_PATH, BANANA_TEXTURE_PATH);
     endSingleTimeCommands(transferCommandBuffer, transferCommandPool, transferQueue);
+    std::cout<<"submitting transfer command buffer!"<<std::endl;
+    endSingleTimeCommands(graphicsCommandBuffer, graphicsCommandPool, graphicsQueue);
+    std::cout<<"submitting grahpics command buffer!"<<std::endl;
     buffer::cleanupStagingBuffers();
     createDrawCommandBuffers();
+    std::cout<<"finished creating draw command buffers!"<<std::endl;
     createSyncObjects();
 }
 
@@ -196,9 +203,10 @@ void Graphics::pickPhysicalDevice(){
 
     std::vector<VkPhysicalDevice> devices(deviceCount);
     vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
-    SwapchainSupportDetails swapchainSupport = swapchain->querySwapchainSupport();
     for (const auto& device : devices){
-        if(getterChecker::isDeviceSuitable(swapchainSupport, deviceExtensions)){
+        swapchainSupport = querySwapchainSupport(device);
+        indices = findQueueFamilies(device);
+        if(getterChecker::isDeviceSuitable(device, swapchainSupport, deviceExtensions)){
             physicalDevice = device;
             msaaSamples = getterChecker::getMaxUsableSampleCount();
             break;
@@ -359,8 +367,8 @@ void Graphics::createDescriptorSetLayout(){
 }
 
 void Graphics::createGraphicsPipeline(){
-    auto vertShaderCode = getterChecker::readFile("shaders/vert.spv");
-    auto fragShaderCode = getterChecker::readFile("shaders/frag.spv");
+    auto vertShaderCode = getterChecker::readFile("../shaders/vert.spv");
+    auto fragShaderCode = getterChecker::readFile("../shaders/frag.spv");
 
     VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
     VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
@@ -551,17 +559,17 @@ void Graphics::createDrawCommandBuffers() {
         renderPassInfo.pClearValues = clearValues.data();
         vkCmdBeginRenderPass(drawCommandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
         vkCmdBindPipeline(drawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-        for(int i =0; i<modelList.size(); i++){
-            Model m = *modelList[i];
-            VkBuffer vertexBuffers[] = {m.vertexBuffer};
+        for(int j =0; j<modelList.size(); j++){
+            //Model m = *modelList[j];
+            VkBuffer vertexBuffers[] = {(*modelList[j]).vertexBuffer};
             VkDeviceSize offsets[] = {0};
             vkCmdBindVertexBuffers(drawCommandBuffers[i], 0, 1, vertexBuffers, offsets);
-            vkCmdBindIndexBuffer(drawCommandBuffers[i], m.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+            vkCmdBindIndexBuffer(drawCommandBuffers[i], (*modelList[j]).indexBuffer, 0, VK_INDEX_TYPE_UINT32);
             vkCmdBindDescriptorSets(drawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS,
-                pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
-            vkCmdDrawIndexed(drawCommandBuffers[i], static_cast<uint32_t>(m.vertexIndices.size()), 1, 0, 0, 0);
+                pipelineLayout, 0, 1, &((*modelList[j]).descriptorSets[i]), 0, nullptr);
+            vkCmdDrawIndexed(drawCommandBuffers[i], static_cast<uint32_t>((*modelList[j]).vertexIndices.size()), 1, 0, 0, 0);
         }
-        
+        std::cout<<i<<std::endl;
         vkCmdEndRenderPass(drawCommandBuffers[i]);
         if (vkEndCommandBuffer(drawCommandBuffers[i]) != VK_SUCCESS) {
             throw std::runtime_error("failed to record command buffer!");
@@ -765,6 +773,30 @@ void Graphics::endSingleTimeCommands(VkCommandBuffer commandBuffer, VkCommandPoo
     vkQueueWaitIdle(queue);
     vkFreeCommandBuffers(device, pool, 1, &commandBuffer);
 }
+
+SwapchainSupportDetails Graphics::querySwapchainSupport(VkPhysicalDevice testDevice) {
+        SwapchainSupportDetails details;
+        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(testDevice, surface, &details.capabilities);
+        uint32_t formatCount;
+        vkGetPhysicalDeviceSurfaceFormatsKHR(testDevice, surface, &formatCount, nullptr);
+
+        if(formatCount !=0){
+            details.formats.resize(formatCount);
+            vkGetPhysicalDeviceSurfaceFormatsKHR(testDevice, surface, &formatCount, 
+            details.formats.data());
+        }
+
+        uint32_t presentModeCount;
+        vkGetPhysicalDeviceSurfacePresentModesKHR(testDevice, surface, &presentModeCount, nullptr);
+
+        if(presentModeCount != 0){
+            details.presentModes.resize(presentModeCount);
+            vkGetPhysicalDeviceSurfacePresentModesKHR(testDevice, surface, &presentModeCount, 
+            details.presentModes.data());
+        }
+        return details;
+}
+
 /*
 void cleanup(){
             cleanupSwapChain();

@@ -18,7 +18,7 @@ extern VkDevice device;
 class TestEngine{
     public:
         void run(){
-            Graphics g(640,320,enableValidationLayers,"");
+            Graphics g(640,320,"");
             loop(g);
         }
 

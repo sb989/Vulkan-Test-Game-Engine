@@ -6,8 +6,8 @@
 #include <vector>
 #include "vtge_vertex.hpp"
 #include <optional>
-#include "vtge_queuefamilyindices.hpp"
 #include "vtge_model.hpp"
+#include "vtge_getter_and_checker_functions.hpp"
 class Swapchain;
 class Framebuffer;
 
@@ -23,8 +23,7 @@ const std::vector<const char*> validationLayers = {
 
 class Graphics{
     public:
-        Graphics(uint32_t width, uint32_t height,
-            bool enableValidationLayers, std::string windowTitle);
+        Graphics(uint32_t width, uint32_t height, std::string windowTitle);
         ~Graphics();
         GLFWwindow                      *window;
         void drawFrame();
@@ -33,30 +32,31 @@ class Graphics{
         const int                       MAX_FRAMES_IN_FLIGHT = 2;
         bool                            framebufferResized = false;
         size_t                          currentFrame = 0;
-        const std::string               MODEL_PATH = "models/viking_room.obj";//"models/ripe-banana.obj";
-        const std::string               TEXTURE_PATH = "textures/viking_room.png";//textures/ripe-banana_u1_v1.png";
+        const std::string               VIKING_MODEL_PATH = "../models/viking_room.obj";//"models/ripe-banana.obj";
+        const std::string               VIKING_TEXTURE_PATH = "../textures/viking_room.png";//textures/ripe-banana_u1_v1.png";
+        const std::string               BANANA_MODEL_PATH = "../models/ripe-banana.obj";
+        const std::string               BANANA_TEXTURE_PATH = "../textures/ripe-banana_u1_v1.png";
         float                           frameCount = 0;
         std::string                     windowTitle = "Vulkan Test Game Engine - FPS: ";
         float                           camXPos, camYPos, camZPos;
         float                           xVel, yVel, zVel;
         uint32_t                        mipLevels;
         uint32_t                        WIDTH, HEIGHT;
-        bool                            enableValidationLayers;
+        //bool                            enableValidationLayers;
         VkInstance                      instance;
         
         VkRenderPass                    renderPass;
-        VkDescriptorSetLayout           descriptorSetLayout;
         VkPipelineLayout                pipelineLayout;
         VkPipeline                      graphicsPipeline;
         VkDescriptorPool                descriptorPool;
-        VkCommandBuffer                 graphicsCommandBuffer, transferCommandBuffer;
+        //VkCommandBuffer                 graphicsCommandBuffer, transferCommandBuffer;
         
         Swapchain                       *swapchain;
         Framebuffer                     *framebuffer;
         VkDebugUtilsMessengerEXT        debugMessenger;
         VkSurfaceKHR                    surface;
 
-        std::vector<VkDescriptorSet>    descriptorSets;
+        //std::vector<VkDescriptorSet>    descriptorSets;
         ///std::vector<VkBuffer>           uniformBuffers;
         //std::vector<VkDeviceMemory>     uniformBuffersMemory;
 
@@ -65,7 +65,7 @@ class Graphics{
         std::vector<VkFence>            inFlightFences, imagesInFlight;
 
         std::vector<Model*>             modelList;
-
+        SwapchainSupportDetails         swapchainSupport;
         
         void setUpWindow();
         void setUpGraphics();
@@ -104,6 +104,7 @@ class Graphics{
         void cleanupSwapchain();
         VkCommandBuffer beginSingleTimeCommands(VkCommandPool pool);
         void endSingleTimeCommands(VkCommandBuffer commandBuffer, VkCommandPool pool, VkQueue queue);
+        SwapchainSupportDetails querySwapchainSupport(VkPhysicalDevice testDevice);
 
 
 };

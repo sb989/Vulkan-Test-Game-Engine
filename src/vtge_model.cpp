@@ -7,6 +7,8 @@
 #include <tiny_obj_loader.h>
 #include <unordered_map>
 extern VkDevice device;
+extern VkDescriptorSetLayout descriptorSetLayout;
+
 
 Model::Model(std::string modelPath, std::string texturePath, Swapchain *swapchain){
     this->modelPath = modelPath;
