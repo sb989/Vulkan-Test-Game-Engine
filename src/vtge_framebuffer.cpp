@@ -20,12 +20,12 @@ Framebuffer::Framebuffer(Swapchain *swapchain, VkRenderPass *renderPass){
 }
 
 Framebuffer::~Framebuffer(){
-    vkDestroyImageView(device, colorImageView, nullptr);
-    vkDestroyImage(device, colorImage, nullptr);
-    vkFreeMemory(device, colorImageMemory, nullptr);
     vkDestroyImageView(device, depthImageView, nullptr);
     vkDestroyImage(device, depthImage, nullptr);
     vkFreeMemory(device, depthImageMemory, nullptr);
+    vkDestroyImageView(device, colorImageView, nullptr);
+    vkDestroyImage(device, colorImage, nullptr);
+    vkFreeMemory(device, colorImageMemory, nullptr);
     for (size_t i = 0; i < swapchainFramebuffers.size(); i++) {
         vkDestroyFramebuffer(device, swapchainFramebuffers[i], nullptr);
     }

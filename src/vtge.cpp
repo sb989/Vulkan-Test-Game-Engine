@@ -18,8 +18,8 @@ extern VkDevice device;
 class TestEngine{
     public:
         void run(){
-            Graphics g(640,320,"");
-            loop(g);
+            Graphics *g = new Graphics(800,600,"");
+            loop(*g);
         }
 
     private: 

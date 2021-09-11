@@ -67,6 +67,9 @@ namespace getterChecker{
             deviceFeatures.geometryShader;
         */
         //for the time being any gpu that can run vulkan is good enough so just return true
+        VkPhysicalDeviceProperties deviceProperties;
+        vkGetPhysicalDeviceProperties(device, &deviceProperties);
+        std::cout<<deviceProperties.deviceName<<std::endl;
         VkPhysicalDeviceFeatures supportedFeatures;
         vkGetPhysicalDeviceFeatures(device, &supportedFeatures);
         bool extensionsSupported = checkDeviceExtensionSupport(device, deviceExtensions);

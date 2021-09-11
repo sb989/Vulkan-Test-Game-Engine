@@ -1,12 +1,12 @@
 #include "vtge_debug_helper_functions.hpp"
 extern bool enableValidationLayers;
 namespace debug{  
-    void setupDebugMessenger(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger) {
+    void setupDebugMessenger(VkInstance instance, VkDebugUtilsMessengerEXT *debugMessenger) {
         if (!enableValidationLayers) return;
 
         VkDebugUtilsMessengerCreateInfoEXT createInfo;
         populateDebugMessengerCreateInfo(createInfo);
-        if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS) {
+        if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, debugMessenger) != VK_SUCCESS) {
             throw std::runtime_error("failed to set up debug messenger!");
         }
     }
@@ -20,10 +20,10 @@ namespace debug{
         }
     }
 
-    void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator) {
+    void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT *debugMessenger, const VkAllocationCallbacks* pAllocator) {
         auto func = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
         if (func != nullptr) {
-            func(instance, debugMessenger, pAllocator);
+            func(instance, *debugMessenger, pAllocator);
         }
     }
 

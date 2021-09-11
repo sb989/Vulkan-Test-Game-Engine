@@ -44,10 +44,13 @@ Graphics::Graphics(uint32_t width, uint32_t height, std::string windowTitle){
 }
 
 Graphics::~Graphics(){
+    std::cout<<"cleanup swapchain"<<std::endl;
     cleanupSwapchain();
+    std::cout<<"delete model list"<<std::endl;
     for(int i = 0; i < modelList.size(); i++){
         delete (modelList[i]);
     }
+    std::cout<<"done"<<std::endl;
     for (size_t i = 0; i<MAX_FRAMES_IN_FLIGHT; i++){
         vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
         vkDestroySemaphore(device, imageAvailableSemaphores[i], nullptr);
@@ -57,7 +60,7 @@ Graphics::~Graphics(){
     vkDestroyCommandPool(device, transferCommandPool, nullptr);            
     vkDestroyDevice(device, nullptr);
     if (enableValidationLayers) {
-        debug::DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
+        debug::DestroyDebugUtilsMessengerEXT(instance, &debugMessenger, nullptr);
     }
     vkDestroySurfaceKHR(instance, surface, nullptr);
     vkDestroyInstance(instance, nullptr);
@@ -73,15 +76,17 @@ void Graphics::cleanupSwapchain(){
     vkDestroyRenderPass(device, renderPass, nullptr);
     for(uint32_t i = 0; i < modelList.size(); i ++){
         Model *m = modelList[i];
-        for(size_t j = 0; i<swapchain->swapchainImages.size(); j++){
+        for(size_t j = 0; j<swapchain->swapchainImages.size(); j++){
             vkDestroyBuffer(device, m->uniformBuffers[j], nullptr);
             vkFreeMemory(device, m->uniformBuffersMemory[j], nullptr);
         }
+        vkDestroyDescriptorPool(device,m->descriptorPool,nullptr);
     }
     delete swapchain;
 }
 
 void Graphics::recreateSwapchain(){
+    std::cout<<"recreating swapchain"<<std::endl;
     int width = 0, height = 0;
     glfwGetFramebufferSize(window, &width, &height);
     while (width == 0 || height == 0){
@@ -90,6 +95,8 @@ void Graphics::recreateSwapchain(){
     }
     vkDeviceWaitIdle(device);
     cleanupSwapchain();
+    swapchainSupport = querySwapchainSupport(physicalDevice);
+
     swapchain = new Swapchain(&surface, window, swapchainSupport);
 
     createRenderPass();
@@ -114,7 +121,7 @@ void Graphics::setUpWindow(){
 
 void Graphics::setUpGraphics(){
     createInstance();
-    debug::setupDebugMessenger(instance, debugMessenger);
+    debug::setupDebugMessenger(instance, &debugMessenger);
     createSurface();
     pickPhysicalDevice();
     createLogicalDevice();
@@ -130,8 +137,8 @@ void Graphics::setUpGraphics(){
     framebuffer = new Framebuffer(swapchain, &renderPass);
     std::cout<<"finished creating framebuffer creating model now!"<<std::endl;
     createModel(VIKING_MODEL_PATH,VIKING_TEXTURE_PATH);
+    createModel(BANANA_MODEL_PATH, BANANA_TEXTURE_PATH);
     std::cout<<"finisehd creating models!"<<std::endl;
-    //createModel(BANANA_MODEL_PATH, BANANA_TEXTURE_PATH);
     endSingleTimeCommands(transferCommandBuffer, transferCommandPool, transferQueue);
     std::cout<<"submitting transfer command buffer!"<<std::endl;
     endSingleTimeCommands(graphicsCommandBuffer, graphicsCommandPool, graphicsQueue);
@@ -200,7 +207,7 @@ void Graphics::pickPhysicalDevice(){
     if(deviceCount == 0){
         throw std::runtime_error("failed to find GPUs with Vulkan support!");
     }
-
+    std::cout<<"device count is "<<deviceCount<<std::endl;
     std::vector<VkPhysicalDevice> devices(deviceCount);
     vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
     for (const auto& device : devices){
@@ -228,7 +235,7 @@ void Graphics::initWindow(){
 }
 
 void Graphics::createLogicalDevice(){
-    QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
+    //QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
 
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
     std::set<uint32_t> uniqueQueueFamilies = {indices.graphicsFamily.value(),
@@ -679,7 +686,7 @@ void Graphics::handleKeyPress(GLFWwindow* window){
     }
 
 QueueFamilyIndices Graphics::findQueueFamilies(VkPhysicalDevice device) {
-    QueueFamilyIndices indices;
+    QueueFamilyIndices ind;
     // Assign index to queue families that could be found
     uint32_t queueFamilyCount = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
@@ -692,27 +699,28 @@ QueueFamilyIndices Graphics::findQueueFamilies(VkPhysicalDevice device) {
         VkBool32 presentSupport = false;
         vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
         if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-            indices.graphicsFamily = i;
+            ind.graphicsFamily = i;
         } else if (queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT) {
-            indices.transferFamily = i;
+            ind.transferFamily = i;
         }
         if(presentSupport){
-            indices.presentFamily = i;
+            ind.presentFamily = i;
         }
-        if (indices.isComplete()){
+        if (ind.isComplete()){
             break;
         }
         i++;
     }
-    if(!indices.transferFamily.has_value()){
-        indices.transferFamily = indices.graphicsFamily;
+    if(!ind.transferFamily.has_value()){
+        ind.transferFamily = ind.graphicsFamily;
     }
-    return indices;
+    return ind;
 }    
 
 void Graphics::framebufferResizeCallback(GLFWwindow* window, int width, int height){
     auto app = reinterpret_cast<Graphics*>(glfwGetWindowUserPointer(window));
     app->framebufferResized = true;
+    //framebufferResized = true;
 }
 
 VkShaderModule Graphics::createShaderModule(const std::vector<char>& code) {

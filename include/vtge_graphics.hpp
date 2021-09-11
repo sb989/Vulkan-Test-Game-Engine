@@ -27,10 +27,10 @@ class Graphics{
         ~Graphics();
         GLFWwindow                      *window;
         void drawFrame();
+        bool                            framebufferResized = false;
     private:
         
         const int                       MAX_FRAMES_IN_FLIGHT = 2;
-        bool                            framebufferResized = false;
         size_t                          currentFrame = 0;
         const std::string               VIKING_MODEL_PATH = "../models/viking_room.obj";//"models/ripe-banana.obj";
         const std::string               VIKING_TEXTURE_PATH = "../textures/viking_room.png";//textures/ripe-banana_u1_v1.png";

@@ -22,7 +22,6 @@ class Swapchain{
         std::vector<VkImageView>        swapchainImageViews;
         VkFormat                        swapchainImageFormat;
         VkExtent2D                      swapchainExtent;
-
     private:
         void createSwapchain();
         void createImageViews(); 

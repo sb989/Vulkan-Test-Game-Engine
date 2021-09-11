@@ -40,11 +40,11 @@ class Model{
         std::vector<Vertex> vertices;
         std::vector<uint32_t> vertexIndices;
         std::vector<VkDescriptorSet> descriptorSets;
+        VkDescriptorPool descriptorPool;
     private:
         std::string modelPath, texturePath;
         Texture *texture;
         Swapchain *swapchain;
-        VkDescriptorPool descriptorPool;
         void createUniformBuffers();
         void createDescriptorPool();
         void createDescriptorSets();

@@ -11,9 +11,6 @@ DEPS = $(wildcard $(IDIR)/*.hpp)
 _OBJ = $(patsubst %.cpp,%.o,$(wildcard *.cpp))
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 
-Build: 
-	echo "starting build"
-
 $(ODIR)/%.o: %.cpp $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS) $(LDFLAGS)
 
