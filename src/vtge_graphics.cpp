@@ -18,12 +18,6 @@
 #define STB_IMAGE_IMPLEMENTATION
 #define TINYOBJLOADER_IMPLEMENTATION
 #define GLM_ENABLE_EXPERIMENTAL
-/*
-TODO:
-have the main program pass in the framebufferresizecallback
-if the framebufferresizecallback is null dont set it
-*/
-
 
 VkDevice                        device;
 VkSampleCountFlagBits           msaaSamples = VK_SAMPLE_COUNT_1_BIT;
@@ -37,7 +31,6 @@ extern bool                     enableValidationLayers;
 Graphics::Graphics(uint32_t width, uint32_t height, std::string windowTitle){
         WIDTH = width;
         HEIGHT = height;
-        //this->enableValidationLayers = enableValidationLayers;
         this->windowTitle = windowTitle;
         setUpWindow();
         setUpGraphics();
@@ -125,7 +118,6 @@ void Graphics::setUpGraphics(){
     createSurface();
     pickPhysicalDevice();
     createLogicalDevice();
-    //indices = findQueueFamilies(physicalDevice);
     swapchain = new Swapchain(&surface, window, swapchainSupport);
     createRenderPass();
     createDescriptorSetLayout();
@@ -235,7 +227,6 @@ void Graphics::initWindow(){
 }
 
 void Graphics::createLogicalDevice(){
-    //QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
 
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
     std::set<uint32_t> uniqueQueueFamilies = {indices.graphicsFamily.value(),
@@ -515,8 +506,6 @@ void Graphics::createGraphicsPipeline(){
 }
 
 void Graphics::createCommandPool() {
-    //QueueFamilyIndices queueFamilyIndices = findQueueFamilies(physicalDevice);
-
     VkCommandPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     poolInfo.queueFamilyIndex = indices.graphicsFamily.value();
@@ -567,7 +556,6 @@ void Graphics::createDrawCommandBuffers() {
         vkCmdBeginRenderPass(drawCommandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
         vkCmdBindPipeline(drawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
         for(int j =0; j<modelList.size(); j++){
-            //Model m = *modelList[j];
             VkBuffer vertexBuffers[] = {(*modelList[j]).vertexBuffer};
             VkDeviceSize offsets[] = {0};
             vkCmdBindVertexBuffers(drawCommandBuffers[i], 0, 1, vertexBuffers, offsets);
@@ -576,7 +564,6 @@ void Graphics::createDrawCommandBuffers() {
                 pipelineLayout, 0, 1, &((*modelList[j]).descriptorSets[i]), 0, nullptr);
             vkCmdDrawIndexed(drawCommandBuffers[i], static_cast<uint32_t>((*modelList[j]).vertexIndices.size()), 1, 0, 0, 0);
         }
-        std::cout<<i<<std::endl;
         vkCmdEndRenderPass(drawCommandBuffers[i]);
         if (vkEndCommandBuffer(drawCommandBuffers[i]) != VK_SUCCESS) {
             throw std::runtime_error("failed to record command buffer!");
@@ -720,7 +707,6 @@ QueueFamilyIndices Graphics::findQueueFamilies(VkPhysicalDevice device) {
 void Graphics::framebufferResizeCallback(GLFWwindow* window, int width, int height){
     auto app = reinterpret_cast<Graphics*>(glfwGetWindowUserPointer(window));
     app->framebufferResized = true;
-    //framebufferResized = true;
 }
 
 VkShaderModule Graphics::createShaderModule(const std::vector<char>& code) {
@@ -804,67 +790,3 @@ SwapchainSupportDetails Graphics::querySwapchainSupport(VkPhysicalDevice testDev
         }
         return details;
 }
-
-/*
-void cleanup(){
-            cleanupSwapChain();
-        ************************************
-            contents of cleanupSwapChain
-            
-            vkDestroyImageView(device, colorImageView, nullptr);
-            vkDestroyImage(device, colorImage, nullptr);
-            vkFreeMemory(device, colorImageMemory, nullptr);
-            vkDestroyImageView(device, depthImageView, nullptr);
-            vkDestroyImage(device, depthImage, nullptr);
-            vkFreeMemory(device, depthImageMemory, nullptr);
-            for (size_t i = 0; i < swapchainFramebuffers.size(); i++) {
-                vkDestroyFramebuffer(device, swapchainFramebuffers[i], nullptr);
-            }
-
-            vkFreeCommandBuffers(device, graphicsCommandPool, static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
-
-            vkDestroyPipeline(device, graphicsPipeline, nullptr);
-            vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
-            vkDestroyRenderPass(device, renderPass, nullptr);
-
-            for (size_t i = 0; i < swapchainImageViews.size(); i++) {
-                vkDestroyImageView(device, swapchainImageViews[i], nullptr);
-            }
-
-            for(size_t i = 0; i<swapchainImages.size(); i++){
-                vkDestroyBuffer(device, uniformBuffers[i], nullptr);
-                vkFreeMemory(device, uniformBuffersMemory[i], nullptr);
-            }
-
-            vkDestroyDescriptorPool(device, descriptorPool, nullptr);
-            vkDestroySwapchainKHR(device, swapchain, nullptr);
-
-
-        ****************************
-            vkDestroySampler(device, textureSampler, nullptr);
-            vkDestroyImageView(device, textureImageView, nullptr);
-            vkDestroyImage(device, textureImage, nullptr);
-            vkFreeMemory(device, textureImageMemory, nullptr);
-            vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
-            vkDestroyBuffer(device, indexBuffer, nullptr);
-            vkFreeMemory(device, indexBufferMemory, nullptr);
-            vkDestroyBuffer(device, vertexBuffer, nullptr);
-            vkFreeMemory(device, vertexBufferMemory, nullptr);
-            for (size_t i = 0; i<MAX_FRAMES_IN_FLIGHT; i++){
-                vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
-                vkDestroySemaphore(device, imageAvailableSemaphores[i], nullptr);
-                vkDestroyFence(device, inFlightFences[i], nullptr);
-            }
-            
-            vkDestroyCommandPool(device, graphicsCommandPool, nullptr);
-            vkDestroyCommandPool(device, transferCommandPool, nullptr);            
-            vkDestroyDevice(device, nullptr);
-            if (enableValidationLayers) {
-                    DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
-            }
-            vkDestroySurfaceKHR(instance, surface, nullptr);
-            vkDestroyInstance(instance, nullptr);
-            glfwDestroyWindow(window);
-            glfwTerminate();
-        }
-*/

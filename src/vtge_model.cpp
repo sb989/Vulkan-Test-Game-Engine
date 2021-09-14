@@ -53,7 +53,6 @@ void Model::createUniformBuffers(){
 
 void Model::createDescriptorPool(){
     std::array<VkDescriptorPoolSize, 2> poolSizes{};
-    //VkDescriptorPoolSize poolSize {};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[0].descriptorCount = static_cast<uint32_t>(swapchain->swapchainImages.size());
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -127,11 +126,7 @@ void Model::createVertexBuffer(){
     buffer::createBuffer(bufferSize,  VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         vertexBuffer, vertexBufferMemory);
-    //beginSingleTimeCommands(transferCommandPool);
     buffer::copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
-    //endSingleTimeCommands(transferCommandBuffer, transferCommandPool, transferQueue);
-    //vkDestroyBuffer(device, stagingBuffer, nullptr);
-    //vkFreeMemory(device, stagingBufferMemory, nullptr);
 }
 
 void Model::createIndexBuffer(){
@@ -149,11 +144,7 @@ void Model::createIndexBuffer(){
     vkUnmapMemory(device, stagingBufferMemory);
     buffer::createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
-    //beginSingleTimeCommands(transferCommandPool);
     buffer::copyBuffer(stagingBuffer, indexBuffer, bufferSize);
-    //endSingleTimeCommands(transferCommandBuffer, transferCommandPool, transferQueue);
-    //vkDestroyBuffer(device, stagingBuffer, nullptr);
-    //vkFreeMemory(device, stagingBufferMemory, nullptr);
 }
 void Model::loadModel(){
         tinyobj::attrib_t attrib;

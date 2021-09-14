@@ -46,8 +46,6 @@ void Texture::createTextureImage(){
     memcpy(data, pixels, static_cast<size_t>(imageSize));
     vkUnmapMemory(device, stagingBufferMemory);
     stbi_image_free(pixels);
-    //transferCommandBuffer = beginSingleTimeCommands(transferCommandPool);
-    //graphicsCommandBuffer = beginSingleTimeCommands(graphicsCommandPool);
     image::createImage(texWidth, texHeight, mipLevels, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
         VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
@@ -57,15 +55,12 @@ void Texture::createTextureImage(){
         static_cast<uint32_t>(texHeight));
     /*
     transitions to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL while generating mipmaps
+    if not using mipmaps the code below needs to be used
     transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB,
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, graphicsCommandBuffer, graphicsQueue, 1);
     */
     generateMipmaps(textureImage, VK_FORMAT_R8G8B8A8_SRGB, graphicsCommandBuffer, texWidth, texHeight, mipLevels);
-    //endSingleTimeCommands(transferCommandBuffer, transferCommandPool, transferQueue);
-    //endSingleTimeCommands(graphicsCommandBuffer, graphicsCommandPool, graphicsQueue);
-    //vkDestroyBuffer(device, stagingBuffer, nullptr);
-    //vkFreeMemory(device, stagingBufferMemory, nullptr);
 }
 
 void Texture::generateMipmaps(VkImage image, VkFormat imageFormat, VkCommandBuffer commandBuffer, int32_t texWidth, int32_t texHeight, uint32_t mipLevels){
@@ -75,7 +70,6 @@ void Texture::generateMipmaps(VkImage image, VkFormat imageFormat, VkCommandBuff
     if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)){
         throw std::runtime_error("texture image format does not support lineawr blitting!");
     }
-    //VkCommandBuffer commandBuffer = beginSingleTimeCommands(graphicsCommandPool);
     VkImageMemoryBarrier barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     barrier.image = image;
@@ -142,8 +136,6 @@ void Texture::generateMipmaps(VkImage image, VkFormat imageFormat, VkCommandBuff
         0, nullptr,
         0, nullptr,
         1, &barrier);
-    
-    //endSingleTimeCommands(commandBuffer, graphicsCommandPool, graphicsQueue);
 }
 
 
@@ -178,7 +170,6 @@ void Texture::createTextureSampler(){
 }
 
 void Texture::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height){
-    //VkCommandBuffer commandBuffer = beginSingleTimeCommands(transferCommandPool);
     VkBufferImageCopy region{};
     region.bufferOffset = 0;
     region.bufferRowLength = 0;
@@ -201,5 +192,4 @@ void Texture::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, 
         1,
         &region
     );
-    //endSingleTimeCommands(commandBuffer, transferCommandPool, transferQueue);
 }

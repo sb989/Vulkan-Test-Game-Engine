@@ -4,9 +4,6 @@
 #include <iostream>
 #include <chrono>
 #include "vtge_graphics.hpp"
-
-
-
 #ifdef NDEBUG
     bool enableValidationLayers = false;
 #else
@@ -25,35 +22,6 @@ class TestEngine{
     private: 
         float                           fps = 0.0f;
         std::string windowTitle = "VTGE | FPS:";
-/*
-        void initVulkan(){
-            createInstance();//creates a vulkan instance
-            setupDebugMessenger();
-            createSurface();// creates glfw window using window params setup in initWindow()
-            pickPhysicalDevice();//picks gpu
-            createLogicalDevice();
-            createSwapChain();
-            createImageViews();
-            createRenderPass();
-            createDescriptorSetLayout();
-            createGraphicsPipeline();
-            createCommandPool();
-            createColorResources();
-            createDepthResources();
-            createFramebuffers();
-            createTextureImage();//uses command buffer
-            createTextureImageView();
-            createTextureSampler();
-            loadModel();
-            createVertexBuffer();//uses command buffer
-            createIndexBuffer();//uses command buffer
-            createUniformBuffers();
-            createDescriptorPool();
-            createDescriptorSets();
-            createCommandBuffers();
-            createSyncObjects();
-        }
-*/
         void loop(Graphics g){
             auto start = std::chrono::high_resolution_clock::now();
             int frameCount = 0;
@@ -72,17 +40,8 @@ class TestEngine{
                     }
             }
             vkDeviceWaitIdle(device);
-        }       
-
-           
-
-    
-
-    
-
-    
+        }           
 };
-
 
 int main() {
     TestEngine app;

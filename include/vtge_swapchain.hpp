@@ -17,9 +17,9 @@ class Swapchain{
         VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
         VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
         
-        VkSwapchainKHR                  swapchain;
         std::vector<VkImage>            swapchainImages;
         std::vector<VkImageView>        swapchainImageViews;
+        VkSwapchainKHR                  swapchain;
         VkFormat                        swapchainImageFormat;
         VkExtent2D                      swapchainExtent;
     private:

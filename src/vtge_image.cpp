@@ -61,7 +61,6 @@ namespace image{
         return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
     }
     void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, VkCommandBuffer commandBuffer, VkQueue queue, uint32_t mipLevels){
-        //VkCommandBuffer commandBuffer = beginSingleTimeCommands(pool);
         VkImageMemoryBarrier barrier{};
         barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
         barrier.oldLayout = oldLayout;
@@ -80,8 +79,8 @@ namespace image{
         barrier.subresourceRange.baseMipLevel = 0;
         barrier.subresourceRange.levelCount = mipLevels;
         barrier.subresourceRange.layerCount = 1;
-        barrier.srcAccessMask = 0; //TODO
-        barrier.dstAccessMask = 0; //TODO
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = 0; 
 
         VkPipelineStageFlags sourceStage;
         VkPipelineStageFlags destinationStage;
@@ -115,8 +114,6 @@ namespace image{
             0, nullptr,
             1, &barrier
         );
-
-        //endSingleTimeCommands(commandBuffer, pool, queue);
     }
 
         

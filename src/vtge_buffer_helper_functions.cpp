@@ -29,7 +29,9 @@ namespace buffer{
         allocInfo.memoryTypeIndex = getterChecker::findMemoryType(memRequirements.memoryTypeBits,
             properties);
 
-        //replace vkAllocateMemory with either a custom memory allocator or use VulkanMemoryAllocator
+        /***
+        TODO: replace vkAllocateMemory with either a custom memory allocator or use VulkanMemoryAllocator
+        ***/
         if (vkAllocateMemory(device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
             throw std::runtime_error("failed to allocate buffer memory!");
         }
@@ -37,13 +39,11 @@ namespace buffer{
     }
 
     void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size){
-        //VkCommandBuffer commandBuffer = beginSingleTimeCommands(transferCommandPool);
         VkBufferCopy copyRegion{};
         copyRegion.srcOffset = 0;
         copyRegion.dstOffset = 0;
         copyRegion.size = size;
         vkCmdCopyBuffer(transferCommandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
-        //endSingleTimeCommands(commandBuffer, transferCommandPool, transferQueue);
     }
 
     void createStagingBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties,

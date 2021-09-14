@@ -66,7 +66,6 @@ namespace getterChecker{
         return deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU && 
             deviceFeatures.geometryShader;
         */
-        //for the time being any gpu that can run vulkan is good enough so just return true
         VkPhysicalDeviceProperties deviceProperties;
         vkGetPhysicalDeviceProperties(device, &deviceProperties);
         std::cout<<deviceProperties.deviceName<<std::endl;
@@ -97,7 +96,7 @@ namespace getterChecker{
         return requiredExtensions.empty();
     }    
 
-    bool checkValidationLayerSupport(std::vector<const char*> validationLayers ) {
+    bool checkValidationLayerSupport(std::vector<const char*> validationLayers) {
         uint32_t layerCount;
         vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
         std::vector<VkLayerProperties> availableLayers(layerCount);

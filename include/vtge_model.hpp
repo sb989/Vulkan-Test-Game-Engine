@@ -33,26 +33,24 @@ class Model{
         Model(std::string modelPath, std::string texturePath, Swapchain *swapchain);
         ~Model();
         void recreateUBufferPoolSets(Swapchain *swapchain);
-        std::vector<VkBuffer> uniformBuffers;
-        std::vector<VkDeviceMemory> uniformBuffersMemory;
-        VkBuffer vertexBuffer, indexBuffer;
-        VkDeviceMemory vertexBufferMemory, indexBufferMemory;
-        std::vector<Vertex> vertices;
-        std::vector<uint32_t> vertexIndices;
-        std::vector<VkDescriptorSet> descriptorSets;
-        VkDescriptorPool descriptorPool;
+        std::vector<VkBuffer>           uniformBuffers;
+        std::vector<VkDeviceMemory>     uniformBuffersMemory;
+        std::vector<Vertex>             vertices;
+        std::vector<uint32_t>           vertexIndices;
+        std::vector<VkDescriptorSet>    descriptorSets;
+        VkBuffer                        vertexBuffer, indexBuffer;
+        VkDeviceMemory                  vertexBufferMemory, indexBufferMemory;
+        VkDescriptorPool                descriptorPool;
     private:
-        std::string modelPath, texturePath;
-        Texture *texture;
-        Swapchain *swapchain;
+        std::string                     modelPath, texturePath;
+        Texture                         *texture;
+        Swapchain                       *swapchain;
         void createUniformBuffers();
         void createDescriptorPool();
         void createDescriptorSets();
-        //void copyBufferToImage();
         void createVertexBuffer();
         void createIndexBuffer();
         void loadModel();
-        //void createTextureImage();
 };
 
 #endif
