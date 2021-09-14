@@ -69,6 +69,7 @@ class Graphics{
         VkDescriptorPool                descriptorPool;        
         VkDebugUtilsMessengerEXT        debugMessenger;
         VkSurfaceKHR                    surface;
+        glm::mat4                       projectionMat;
 
         /**
          * @brief sets up and creates glfw window
@@ -147,8 +148,11 @@ class Graphics{
          * @brief creates a model object and adds it to the list of models
          * @param modelPath the path to the model
          * @param texturePath the path to the models texture
+         * @param translate a glm::vec3 that translates the model a distance in a direction
+         * @param scale a glm::vec3 that scales the model
+         * @param rotate a glm::vec3 that rotates the model
          */
-        void createModel(std::string modelPath, std::string texturePath);
+        void createModel(std::string modelPath, std::string texturePath, glm::vec3 translate, glm::vec3 scale, glm::vec3 rotate);
 
         /**
          * @brief destroys and recreates the swapchain; it is called whenever the swapchain becomes outdated

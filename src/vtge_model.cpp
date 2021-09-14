@@ -1,4 +1,6 @@
 #define TINYOBJLOADER_IMPLEMENTATION
+#include <iostream>
+#include "glm/gtx/string_cast.hpp"
 #include <vtge_model.hpp>
 #include <vtge_texture.hpp>
 #include <vtge_swapchain.hpp>
@@ -15,6 +17,9 @@ Model::Model(std::string modelPath, std::string texturePath, Swapchain *swapchai
     this->texturePath = texturePath;
     this->swapchain = swapchain;
     this->texture = new Texture(texturePath);
+    this->modelMat = glm::mat4(1.0f);
+    this->velocity = glm::vec3(0.0f);
+    this->rotation = glm::vec3(0.0f);
     loadModel();
     createVertexBuffer();
     createIndexBuffer();
@@ -146,6 +151,7 @@ void Model::createIndexBuffer(){
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, indexBuffer, indexBufferMemory);
     buffer::copyBuffer(stagingBuffer, indexBuffer, bufferSize);
 }
+
 void Model::loadModel(){
         tinyobj::attrib_t attrib;
         std::vector<tinyobj::shape_t> shapes;
@@ -175,4 +181,25 @@ void Model::loadModel(){
                 vertexIndices.push_back(uniqueVertices[vertex]);       
             }
         }
+}
+
+void Model::moveModel(glm::vec3 changeInPos){    
+    modelMat = glm::translate(modelMat, changeInPos);
+}
+
+void Model::scaleModel(glm::vec3 factor){
+    modelMat = glm::scale(modelMat, factor);
+}
+
+void Model::rotateModel(glm::vec3 rotation){
+    modelMat = glm::rotate(modelMat, glm::radians(rotation.x), glm::vec3(1,0,0));
+    modelMat = glm::rotate(modelMat, glm::radians(rotation.y), glm::vec3(0,1,0));
+    modelMat = glm::rotate(modelMat, glm::radians(rotation.z), glm::vec3(0,0,1));
+}
+
+void Model::updateModelMat(){
+    moveModel(velocity);
+    rotateModel(rotation);
+    //std::cout<<"rotation is :"<<glm::to_string(rotation)<<std::endl;
+    //std::cout<<"modelMat is :"<<glm::to_string(modelMat)<<std::endl;
 }

@@ -49,6 +49,47 @@ class Model{
          */
         void recreateUBufferPoolSets(Swapchain *swapchain);
 
+        /**
+         * @brief returns the model matrix
+         * @return returns a glm::mat4 that contains the model matrix
+         */
+        glm::mat4 getModelMat(){return modelMat;}
+
+        /**
+         * @brief updates the model matrix using the models velocity and rate of rotation
+         */
+        void updateModelMat();
+
+        /**
+         * @brief sets the models velocity
+         * @param vel the new velocity of the model
+         */
+        void setVelocity(glm::vec3 vel){velocity = vel;}
+
+        /**
+         * @brief sets the models rotation rate
+         * @param rot the new rate of rotation of the model
+         */
+        void setRotation(glm::vec3 rot){rotation = rot;}
+
+        /**
+         * @brief moves the model a distance in a direction
+         * @param changeInPos a vec3 denoting the distance and direction
+         */
+        void moveModel(glm::vec3 changeInPos);
+
+        /**
+         * @brief scales the model by a factor
+         * @param factor a vec3 denoting the factor to scale by
+         */
+        void scaleModel(glm::vec3 factor);
+
+        /**
+         * @brief rotates the model by the angle determined by the vector
+         * @param a vec3 denoting the angle to rotate by
+         */
+        void rotateModel(glm::vec3 rotation);
+
         std::vector<VkBuffer>           uniformBuffers;
         std::vector<VkDeviceMemory>     uniformBuffersMemory;
         std::vector<Vertex>             vertices;
@@ -61,7 +102,9 @@ class Model{
         std::string                     modelPath, texturePath;
         Texture                         *texture;
         Swapchain                       *swapchain;
-
+        glm::mat4                       modelMat;
+        glm::vec3                       velocity;
+        glm::vec3                       rotation;
         /**
          * @brief creates a uniform buffer for each swapchain image
          */
@@ -91,6 +134,9 @@ class Model{
          * @brief loads the model info from the file
          */
         void loadModel();
+
+
+        
 };
 
 #endif

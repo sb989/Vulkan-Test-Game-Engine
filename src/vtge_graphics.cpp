@@ -34,6 +34,7 @@ Graphics::Graphics(uint32_t width, uint32_t height, std::string windowTitle){
         this->windowTitle = windowTitle;
         setUpWindow();
         setUpGraphics();
+        projectionMat = glm::perspective(glm::radians(45.0f), swapchain->swapchainExtent.width / (float) swapchain->swapchainExtent.height,  0.1f, 400.0f);
 }
 
 Graphics::~Graphics(){
@@ -88,8 +89,8 @@ void Graphics::setUpGraphics(){
     std::cout<<"creating framebuffer now!"<<std::endl;
     framebuffer = new Framebuffer(swapchain, &renderPass);
     std::cout<<"finished creating framebuffer creating model now!"<<std::endl;
-    createModel(VIKING_MODEL_PATH,VIKING_TEXTURE_PATH);
-    createModel(BANANA_MODEL_PATH, BANANA_TEXTURE_PATH);
+    createModel(VIKING_MODEL_PATH,VIKING_TEXTURE_PATH, glm::vec3(-4, 5, 1), glm::vec3(1.0f), glm::vec3(0.0f));
+    createModel(BANANA_MODEL_PATH, BANANA_TEXTURE_PATH, glm::vec3(2, 5, -1), glm::vec3(0.05f), glm::vec3(0.0f, 90.0f, 0.0f));
     std::cout<<"finisehd creating models!"<<std::endl;
     endSingleTimeCommands(transferCommandBuffer, transferCommandPool, transferQueue);
     std::cout<<"submitting transfer command buffer!"<<std::endl;
@@ -678,9 +679,10 @@ void Graphics::updateUniformBuffer(uint32_t currentImage, Model *m){
     auto currrentTime = std::chrono::high_resolution_clock::now();
     float time = std::chrono::duration<float, std::chrono::seconds::period>(currrentTime - startTime).count();
     UniformBufferObject ubo{};
-    ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    m->updateModelMat();
+    ubo.model = m->getModelMat();
     ubo.view = glm::lookAt(glm::vec3(camXPos, camYPos, camZPos), glm::vec3(camXPos, camYPos + 100.0f, camZPos), glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.proj = glm::perspective(glm::radians(45.0f), swapchain->swapchainExtent.width / (float) swapchain->swapchainExtent.height,  0.1f, 400.0f);
+    ubo.proj = projectionMat;
     ubo.proj[1][1] *= -1; //glm was designed for opengl where y coords are inverted so multiply by -1
     void *data;
     vkMapMemory(device, m->uniformBuffersMemory[currentImage], 0, sizeof(ubo), 0, &data);
@@ -688,8 +690,12 @@ void Graphics::updateUniformBuffer(uint32_t currentImage, Model *m){
     vkUnmapMemory(device, m->uniformBuffersMemory[currentImage]);
 }
 
-void Graphics::createModel(std::string modelPath, std::string texturePath){
+void Graphics::createModel(std::string modelPath, std::string texturePath, glm::vec3 translate, glm::vec3 scale, glm::vec3 rotate){
     Model *m = new Model(modelPath, texturePath, swapchain);
+    m->moveModel(translate);
+    m->scaleModel(scale);
+    m->rotateModel(rotate);
+    m->setRotation(rotate/40.0f);
     modelList.push_back(m);
 }
 
