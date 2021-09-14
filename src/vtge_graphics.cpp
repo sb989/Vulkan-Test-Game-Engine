@@ -39,10 +39,12 @@ Graphics::Graphics(uint32_t width, uint32_t height, std::string windowTitle){
 Graphics::~Graphics(){
     std::cout<<"cleanup swapchain"<<std::endl;
     cleanupSwapchain();
+    vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
     std::cout<<"delete model list"<<std::endl;
     for(int i = 0; i < modelList.size(); i++){
         delete (modelList[i]);
     }
+    
     std::cout<<"done"<<std::endl;
     for (size_t i = 0; i<MAX_FRAMES_IN_FLIGHT; i++){
         vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
@@ -59,48 +61,6 @@ Graphics::~Graphics(){
     vkDestroyInstance(instance, nullptr);
     glfwDestroyWindow(window);
     glfwTerminate();
-}
-
-void Graphics::cleanupSwapchain(){
-    delete framebuffer;
-    vkFreeCommandBuffers(device, graphicsCommandPool, static_cast<uint32_t>(drawCommandBuffers.size()), drawCommandBuffers.data());
-    vkDestroyPipeline(device, graphicsPipeline, nullptr);
-    vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
-    vkDestroyRenderPass(device, renderPass, nullptr);
-    for(uint32_t i = 0; i < modelList.size(); i ++){
-        Model *m = modelList[i];
-        for(size_t j = 0; j<swapchain->swapchainImages.size(); j++){
-            vkDestroyBuffer(device, m->uniformBuffers[j], nullptr);
-            vkFreeMemory(device, m->uniformBuffersMemory[j], nullptr);
-        }
-        vkDestroyDescriptorPool(device,m->descriptorPool,nullptr);
-    }
-    delete swapchain;
-}
-
-void Graphics::recreateSwapchain(){
-    std::cout<<"recreating swapchain"<<std::endl;
-    int width = 0, height = 0;
-    glfwGetFramebufferSize(window, &width, &height);
-    while (width == 0 || height == 0){
-        glfwGetFramebufferSize(window, &width, &height);
-        glfwWaitEvents();
-    }
-    vkDeviceWaitIdle(device);
-    cleanupSwapchain();
-    swapchainSupport = querySwapchainSupport(physicalDevice);
-
-    swapchain = new Swapchain(&surface, window, swapchainSupport);
-
-    createRenderPass();
-    createGraphicsPipeline();
-    graphicsCommandBuffer = beginSingleTimeCommands(graphicsCommandPool);
-    framebuffer = new Framebuffer(swapchain, &renderPass);
-    for(int i = 0; i<modelList.size(); i++){
-        modelList[i]->recreateUBufferPoolSets(swapchain);
-    }
-    endSingleTimeCommands(graphicsCommandBuffer, graphicsCommandPool, graphicsQueue);
-    createDrawCommandBuffers();
 }
 
 void Graphics::setUpWindow(){
@@ -217,14 +177,6 @@ void Graphics::pickPhysicalDevice(){
     }
 }
 
-void Graphics::initWindow(){
-    glfwInit();
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    //glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-    window = glfwCreateWindow(WIDTH , HEIGHT, windowTitle.c_str(), nullptr, nullptr);
-    glfwSetWindowUserPointer(window, this);
-    glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
-}
 
 void Graphics::createLogicalDevice(){
 
@@ -680,7 +632,6 @@ QueueFamilyIndices Graphics::findQueueFamilies(VkPhysicalDevice device) {
     std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
     vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
 
-
     int i = 0;
     for (const auto& queueFamily : queueFamilies) {
         VkBool32 presentSupport = false;
@@ -766,6 +717,48 @@ void Graphics::endSingleTimeCommands(VkCommandBuffer commandBuffer, VkCommandPoo
     vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
     vkQueueWaitIdle(queue);
     vkFreeCommandBuffers(device, pool, 1, &commandBuffer);
+}
+
+void Graphics::cleanupSwapchain(){
+    delete framebuffer;
+    vkFreeCommandBuffers(device, graphicsCommandPool, static_cast<uint32_t>(drawCommandBuffers.size()), drawCommandBuffers.data());
+    vkDestroyPipeline(device, graphicsPipeline, nullptr);
+    vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
+    vkDestroyRenderPass(device, renderPass, nullptr);
+    for(uint32_t i = 0; i < modelList.size(); i ++){
+        Model *m = modelList[i];
+        for(size_t j = 0; j<swapchain->swapchainImages.size(); j++){
+            vkDestroyBuffer(device, m->uniformBuffers[j], nullptr);
+            vkFreeMemory(device, m->uniformBuffersMemory[j], nullptr);
+        }
+        vkDestroyDescriptorPool(device,m->descriptorPool,nullptr);
+    }
+    delete swapchain;
+}
+
+void Graphics::recreateSwapchain(){
+    std::cout<<"recreating swapchain"<<std::endl;
+    int width = 0, height = 0;
+    glfwGetFramebufferSize(window, &width, &height);
+    while (width == 0 || height == 0){
+        glfwGetFramebufferSize(window, &width, &height);
+        glfwWaitEvents();
+    }
+    vkDeviceWaitIdle(device);
+    cleanupSwapchain();
+    swapchainSupport = querySwapchainSupport(physicalDevice);
+
+    swapchain = new Swapchain(&surface, window, swapchainSupport);
+
+    createRenderPass();
+    createGraphicsPipeline();
+    graphicsCommandBuffer = beginSingleTimeCommands(graphicsCommandPool);
+    framebuffer = new Framebuffer(swapchain, &renderPass);
+    for(int i = 0; i<modelList.size(); i++){
+        modelList[i]->recreateUBufferPoolSets(swapchain);
+    }
+    endSingleTimeCommands(graphicsCommandBuffer, graphicsCommandPool, graphicsQueue);
+    createDrawCommandBuffers();
 }
 
 SwapchainSupportDetails Graphics::querySwapchainSupport(VkPhysicalDevice testDevice) {

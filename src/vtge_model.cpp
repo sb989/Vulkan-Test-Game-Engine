@@ -25,7 +25,7 @@ Model::Model(std::string modelPath, std::string texturePath, Swapchain *swapchai
 
 Model::~Model(){
     delete texture;
-    vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
+    //vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
     vkDestroyBuffer(device, indexBuffer, nullptr);
     vkFreeMemory(device, indexBufferMemory, nullptr);
     vkDestroyBuffer(device, vertexBuffer, nullptr);

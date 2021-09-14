@@ -30,9 +30,25 @@ struct UniformBufferObject {
 
 class Model{
     public:
+        /**
+         * @brief the constructor for a model object
+         * @param modelPath the path to the model
+         * @param texturePath the path to the models texture
+         * @param swapchain a pointer to the swapchain being used
+         */
         Model(std::string modelPath, std::string texturePath, Swapchain *swapchain);
+
+        /**
+         * @brief the destructor for a model object
+         */
         ~Model();
+
+        /**
+         * @brief recreates the uniform buffer, descriptor pool and descriptor sets for a model
+         * @param swapchain the swapchain being used
+         */
         void recreateUBufferPoolSets(Swapchain *swapchain);
+
         std::vector<VkBuffer>           uniformBuffers;
         std::vector<VkDeviceMemory>     uniformBuffersMemory;
         std::vector<Vertex>             vertices;
@@ -45,11 +61,35 @@ class Model{
         std::string                     modelPath, texturePath;
         Texture                         *texture;
         Swapchain                       *swapchain;
+
+        /**
+         * @brief creates a uniform buffer for each swapchain image
+         */
         void createUniformBuffers();
+
+        /**
+         * @brief creates a descriptor pool 
+         */
         void createDescriptorPool();
+
+        /**
+         * @brief allocates a descriptor set for each swapchain image from the descriptor pool
+         */
         void createDescriptorSets();
+
+        /**
+         * @brief creates the vertex buffer from the info in the file
+         */
         void createVertexBuffer();
+
+        /**
+         * @brief creates the index buffer from the info in the file
+         */
         void createIndexBuffer();
+
+        /**
+         * @brief loads the model info from the file
+         */
         void loadModel();
 };
 
