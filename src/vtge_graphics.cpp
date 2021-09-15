@@ -45,7 +45,9 @@ Graphics::~Graphics(){
     for(int i = 0; i < modelList.size(); i++){
         delete (modelList[i]);
     }
-    
+    for(int i = 0; i < lightList.size(); i++){
+        delete (lightList[i]);
+    }
     std::cout<<"done"<<std::endl;
     for (size_t i = 0; i<MAX_FRAMES_IN_FLIGHT; i++){
         vkDestroySemaphore(device, renderFinishedSemaphores[i], nullptr);
@@ -82,7 +84,10 @@ void Graphics::setUpGraphics(){
     swapchain = new Swapchain(&surface, window, swapchainSupport);
     createRenderPass();
     createDescriptorSetLayout();
-    createGraphicsPipeline();
+    pipelines = {&graphicsPipeline, &lightPipeline};
+    loadShaderModule("../shaders/obj_vert.spv", "../shaders/obj_frag.spv");
+    loadShaderModule("../shaders/light_vert.spv", "../shaders/light_frag.spv");
+    createPipeline();    
     createCommandPool();
     graphicsCommandBuffer = beginSingleTimeCommands(graphicsCommandPool);
     transferCommandBuffer = beginSingleTimeCommands(transferCommandPool);
@@ -91,6 +96,7 @@ void Graphics::setUpGraphics(){
     std::cout<<"finished creating framebuffer creating model now!"<<std::endl;
     createModel(VIKING_MODEL_PATH,VIKING_TEXTURE_PATH, glm::vec3(-4, 5, 1), glm::vec3(1.0f), glm::vec3(0.0f));
     createModel(BANANA_MODEL_PATH, BANANA_TEXTURE_PATH, glm::vec3(2, 5, -1), glm::vec3(0.05f), glm::vec3(0.0f, 90.0f, 0.0f));
+    createLight("../models/cube.obj", glm::vec3(0, 5, 1), glm::vec3(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
     std::cout<<"finisehd creating models!"<<std::endl;
     endSingleTimeCommands(transferCommandBuffer, transferCommandPool, transferQueue);
     std::cout<<"submitting transfer command buffer!"<<std::endl;
@@ -317,39 +323,33 @@ void Graphics::createDescriptorSetLayout(){
     }
 }
 
-void Graphics::createGraphicsPipeline(){
-    auto vertShaderCode = getterChecker::readFile("../shaders/vert.spv");
-    auto fragShaderCode = getterChecker::readFile("../shaders/frag.spv");
+void Graphics::loadShaderModule(std::string vertFilePath, std::string fragFilePath){
+    auto vertShaderCode = getterChecker::readFile(vertFilePath);
+    auto fragShaderCode = getterChecker::readFile(fragFilePath);
 
     VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
     VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
-    VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
-    vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-    vertShaderStageInfo.module = vertShaderModule;
-    vertShaderStageInfo.pName = "main";
+    vertShaderModules.push_back(vertShaderModule);
+    fragShaderModules.push_back(fragShaderModule);
+}
 
-    VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
-    fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    fragShaderStageInfo.module = fragShaderModule;
-    fragShaderStageInfo.pName = "main";
-    VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
-    VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
-    vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-
+void Graphics::createPipeline(){
     auto bindingDescription = Vertex::getBindingDescription();
     auto attributeDescriptions = Vertex::getAttributeDescriptions();
-
+    
+    VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
+    vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     vertexInputInfo.vertexBindingDescriptionCount = 1;
     vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
     vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>
-    (attributeDescriptions.size());
+        (attributeDescriptions.size());
     vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
+
     VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
     inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
     inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     inputAssembly.primitiveRestartEnable = VK_FALSE;
+
     VkViewport viewport{};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
@@ -357,15 +357,18 @@ void Graphics::createGraphicsPipeline(){
     viewport.height = (float) swapchain->swapchainExtent.height;
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
+
     VkRect2D scissor{};
     scissor.offset = {0, 0};
     scissor.extent = swapchain->swapchainExtent;
+
     VkPipelineViewportStateCreateInfo viewportState{};
     viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
     viewportState.viewportCount = 1;
     viewportState.pViewports = &viewport;
     viewportState.scissorCount = 1;
     viewportState.pScissors = &scissor;
+    
     VkPipelineRasterizationStateCreateInfo rasterizer{};
     rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
     rasterizer.depthClampEnable = VK_FALSE;
@@ -378,6 +381,7 @@ void Graphics::createGraphicsPipeline(){
     rasterizer.depthBiasConstantFactor = 0.0f; // Optional
     rasterizer.depthBiasClamp = 0.0f; // Optional
     rasterizer.depthBiasSlopeFactor = 0.0f; // Optional
+
     VkPipelineMultisampleStateCreateInfo multisampling{};
     multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
     multisampling.sampleShadingEnable = VK_FALSE; // set to VK_TRUE to enable sample shading (anti aliasing for textures)
@@ -386,7 +390,7 @@ void Graphics::createGraphicsPipeline(){
     multisampling.pSampleMask = nullptr; // Optional
     multisampling.alphaToCoverageEnable = VK_FALSE; // Optional
     multisampling.alphaToOneEnable = VK_FALSE; // Optional
-    
+
     VkPipelineColorBlendAttachmentState colorBlendAttachment{};
     colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
     colorBlendAttachment.blendEnable = VK_FALSE;
@@ -403,6 +407,7 @@ void Graphics::createGraphicsPipeline(){
     colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
     colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
     colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+    
     VkPipelineColorBlendStateCreateInfo colorBlending{};
     colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     colorBlending.logicOpEnable = VK_FALSE;
@@ -413,6 +418,7 @@ void Graphics::createGraphicsPipeline(){
     colorBlending.blendConstants[1] = 0.0f; // Optional
     colorBlending.blendConstants[2] = 0.0f; // Optional
     colorBlending.blendConstants[3] = 0.0f; // Optional
+
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutInfo.setLayoutCount = 1; // Optional
@@ -434,28 +440,50 @@ void Graphics::createGraphicsPipeline(){
     depthStencil.stencilTestEnable = VK_FALSE;
     depthStencil.front = {};
     depthStencil.back = {};
-    VkGraphicsPipelineCreateInfo pipelineInfo{};
-    pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    pipelineInfo.stageCount = 2;
-    pipelineInfo.pStages = shaderStages;
-    pipelineInfo.pVertexInputState = &vertexInputInfo;
-    pipelineInfo.pInputAssemblyState = &inputAssembly;
-    pipelineInfo.pViewportState = &viewportState;
-    pipelineInfo.pRasterizationState = &rasterizer;
-    pipelineInfo.pMultisampleState = &multisampling;
-    pipelineInfo.pDepthStencilState = nullptr; // Optional
-    pipelineInfo.pColorBlendState = &colorBlending;
-    pipelineInfo.pDynamicState = nullptr; // Optional
-    pipelineInfo.layout = pipelineLayout;
-    pipelineInfo.renderPass = renderPass;
-    pipelineInfo.subpass = 0;
-    pipelineInfo.pDepthStencilState = &depthStencil;
-    if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS) {
-        throw std::runtime_error("failed to create graphics pipeline!");
-    }
+    for(int i = 0; i<pipelines.size(); i++){       
+        
+        VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
+        vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+        vertShaderStageInfo.module = vertShaderModules[i];
+        vertShaderStageInfo.pName = "main";
 
-    vkDestroyShaderModule(device, fragShaderModule, nullptr);
-    vkDestroyShaderModule(device, vertShaderModule, nullptr);
+        VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
+        fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+        fragShaderStageInfo.module = fragShaderModules[i];
+        fragShaderStageInfo.pName = "main";
+        
+        VkPipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
+
+        VkGraphicsPipelineCreateInfo pipelineInfo{};
+        pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+        pipelineInfo.stageCount = 2;
+        pipelineInfo.pStages = shaderStages;
+        pipelineInfo.pVertexInputState = &vertexInputInfo;
+        pipelineInfo.pInputAssemblyState = &inputAssembly;
+        pipelineInfo.pViewportState = &viewportState;
+        pipelineInfo.pRasterizationState = &rasterizer;
+        pipelineInfo.pMultisampleState = &multisampling;
+        pipelineInfo.pDepthStencilState = nullptr; // Optional
+        pipelineInfo.pColorBlendState = &colorBlending;
+        pipelineInfo.pDynamicState = nullptr; // Optional
+        pipelineInfo.layout = pipelineLayout;
+        pipelineInfo.renderPass = renderPass;
+        pipelineInfo.subpass = 0;
+        pipelineInfo.pDepthStencilState = &depthStencil;
+
+    
+        if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, pipelines[i]) != VK_SUCCESS) {
+            throw std::runtime_error("failed to create graphics pipeline!");
+        }
+    }
+    for(int i = 0; i<fragShaderModules.size(); i ++){
+        vkDestroyShaderModule(device, fragShaderModules[i], nullptr);
+        vkDestroyShaderModule(device, vertShaderModules[i], nullptr);
+    }
+    fragShaderModules.clear();
+    vertShaderModules.clear();
 }
 
 void Graphics::createCommandPool() {
@@ -507,8 +535,9 @@ void Graphics::createDrawCommandBuffers() {
         renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
         renderPassInfo.pClearValues = clearValues.data();
         vkCmdBeginRenderPass(drawCommandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
         vkCmdBindPipeline(drawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-        for(int j =0; j<modelList.size(); j++){
+        for(int j = 0; j<modelList.size(); j++){
             VkBuffer vertexBuffers[] = {(*modelList[j]).vertexBuffer};
             VkDeviceSize offsets[] = {0};
             vkCmdBindVertexBuffers(drawCommandBuffers[i], 0, 1, vertexBuffers, offsets);
@@ -516,6 +545,17 @@ void Graphics::createDrawCommandBuffers() {
             vkCmdBindDescriptorSets(drawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS,
                 pipelineLayout, 0, 1, &((*modelList[j]).descriptorSets[i]), 0, nullptr);
             vkCmdDrawIndexed(drawCommandBuffers[i], static_cast<uint32_t>((*modelList[j]).vertexIndices.size()), 1, 0, 0, 0);
+        }
+
+        vkCmdBindPipeline(drawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, lightPipeline);
+        for(int j = 0; j<lightList.size(); j++){
+            VkBuffer vertexBuffers[] = {(*lightList[j]).vertexBuffer};
+            VkDeviceSize offsets[] = {0};
+            vkCmdBindVertexBuffers(drawCommandBuffers[i], 0, 1, vertexBuffers, offsets);
+            vkCmdBindIndexBuffer(drawCommandBuffers[i], (*lightList[j]).indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+            vkCmdBindDescriptorSets(drawCommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS,
+                pipelineLayout, 0, 1, &((*lightList[j]).descriptorSets[i]), 0, nullptr);
+            vkCmdDrawIndexed(drawCommandBuffers[i], static_cast<uint32_t>((*lightList[j]).vertexIndices.size()), 1, 0, 0, 0);
         }
         vkCmdEndRenderPass(drawCommandBuffers[i]);
         if (vkEndCommandBuffer(drawCommandBuffers[i]) != VK_SUCCESS) {
@@ -568,6 +608,9 @@ void Graphics::drawFrame(){
     handleKeyPress(window);
     for(int i = 0; i < modelList.size(); i++){
         updateUniformBuffer(imageIndex, modelList[i]);
+    }
+    for(int i = 0; i < lightList.size(); i++){
+        updateUniformBuffer(imageIndex, lightList[i]);
     }
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -675,9 +718,9 @@ VkShaderModule Graphics::createShaderModule(const std::vector<char>& code) {
 
 void Graphics::updateUniformBuffer(uint32_t currentImage, Model *m){
     //using push constants is a more efficent way to pass a small buffer of data to shaders
-    static auto startTime = std::chrono::high_resolution_clock::now();
-    auto currrentTime = std::chrono::high_resolution_clock::now();
-    float time = std::chrono::duration<float, std::chrono::seconds::period>(currrentTime - startTime).count();
+    // static auto startTime = std::chrono::high_resolution_clock::now();
+    // auto currrentTime = std::chrono::high_resolution_clock::now();
+    // float time = std::chrono::duration<float, std::chrono::seconds::period>(currrentTime - startTime).count();
     UniformBufferObject ubo{};
     m->updateModelMat();
     ubo.model = m->getModelMat();
@@ -697,6 +740,15 @@ void Graphics::createModel(std::string modelPath, std::string texturePath, glm::
     m->rotateModel(rotate);
     m->setRotation(rotate/40.0f);
     modelList.push_back(m);
+}
+
+void Graphics::createLight(std::string modelPath, glm::vec3 translate, glm::vec3 scale, glm::vec3 rotate){
+    Model *m = new Model(modelPath, swapchain);
+    m->moveModel(translate);
+    m->scaleModel(scale);
+    m->rotateModel(rotate);
+    m->setRotation(rotate/40.0f);
+    lightList.push_back(m);
 }
 
 VkCommandBuffer Graphics::beginSingleTimeCommands(VkCommandPool pool){
@@ -729,10 +781,20 @@ void Graphics::cleanupSwapchain(){
     delete framebuffer;
     vkFreeCommandBuffers(device, graphicsCommandPool, static_cast<uint32_t>(drawCommandBuffers.size()), drawCommandBuffers.data());
     vkDestroyPipeline(device, graphicsPipeline, nullptr);
+    vkDestroyPipeline(device, lightPipeline, nullptr);
+    pipelines.clear();
     vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
     vkDestroyRenderPass(device, renderPass, nullptr);
     for(uint32_t i = 0; i < modelList.size(); i ++){
         Model *m = modelList[i];
+        for(size_t j = 0; j<swapchain->swapchainImages.size(); j++){
+            vkDestroyBuffer(device, m->uniformBuffers[j], nullptr);
+            vkFreeMemory(device, m->uniformBuffersMemory[j], nullptr);
+        }
+        vkDestroyDescriptorPool(device,m->descriptorPool,nullptr);
+    }
+    for(uint32_t i = 0; i < lightList.size(); i ++){
+        Model *m = lightList[i];
         for(size_t j = 0; j<swapchain->swapchainImages.size(); j++){
             vkDestroyBuffer(device, m->uniformBuffers[j], nullptr);
             vkFreeMemory(device, m->uniformBuffersMemory[j], nullptr);
@@ -757,11 +819,17 @@ void Graphics::recreateSwapchain(){
     swapchain = new Swapchain(&surface, window, swapchainSupport);
 
     createRenderPass();
-    createGraphicsPipeline();
+    loadShaderModule("../shaders/obj_vert.spv", "../shaders/obj_frag.spv");
+    loadShaderModule("../shaders/light_vert.spv", "../shaders/light_frag.spv");
+    pipelines = {&graphicsPipeline, &lightPipeline};
+    createPipeline();
     graphicsCommandBuffer = beginSingleTimeCommands(graphicsCommandPool);
     framebuffer = new Framebuffer(swapchain, &renderPass);
     for(int i = 0; i<modelList.size(); i++){
         modelList[i]->recreateUBufferPoolSets(swapchain);
+    }
+    for(int i = 0; i<lightList.size(); i++){
+        lightList[i]->recreateUBufferPoolSets(swapchain);
     }
     endSingleTimeCommands(graphicsCommandBuffer, graphicsCommandPool, graphicsQueue);
     createDrawCommandBuffers();

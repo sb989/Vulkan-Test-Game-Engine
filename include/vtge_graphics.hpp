@@ -58,14 +58,16 @@ class Graphics{
         std::vector<VkCommandBuffer>    drawCommandBuffers;
         std::vector<VkSemaphore>        imageAvailableSemaphores, renderFinishedSemaphores;
         std::vector<VkFence>            inFlightFences, imagesInFlight;
-        std::vector<Model*>             modelList;
+        std::vector<Model*>             modelList, lightList;
+        std::vector<VkShaderModule>     vertShaderModules, fragShaderModules;
+        std::vector<VkPipeline*>         pipelines;
         Swapchain                       *swapchain;
         SwapchainSupportDetails         swapchainSupport;
         Framebuffer                     *framebuffer;
         VkInstance                      instance;
         VkRenderPass                    renderPass;
         VkPipelineLayout                pipelineLayout;
-        VkPipeline                      graphicsPipeline;
+        VkPipeline                      graphicsPipeline, lightPipeline;
         VkDescriptorPool                descriptorPool;        
         VkDebugUtilsMessengerEXT        debugMessenger;
         VkSurfaceKHR                    surface;
@@ -112,9 +114,16 @@ class Graphics{
         void createDescriptorSetLayout();
 
         /**
-         * @brief creates graphics pipeline
+         * @brief creates pipelines
          */
-        void createGraphicsPipeline();
+        void createPipeline();
+
+        /**
+         * @brief loads a shader file and creates a shader module; adds the module to a class list
+         * @param vertFilePath file path to the vertex shader file
+         * @param fragFilePath file path to the fragment shader file
+         */
+        void loadShaderModule(std::string vertFilePath, std::string fragFilePath);
 
         /**
          * @brief creates a command pool
@@ -153,6 +162,17 @@ class Graphics{
          * @param rotate a glm::vec3 that rotates the model
          */
         void createModel(std::string modelPath, std::string texturePath, glm::vec3 translate, glm::vec3 scale, glm::vec3 rotate);
+
+
+        /**
+         * @brief creates a model object and adds it to the list of models
+         * @param modelPath the path to the model
+         * @param translate a glm::vec3 that translates the model a distance in a direction
+         * @param scale a glm::vec3 that scales the model
+         * @param rotate a glm::vec3 that rotates the model
+         */
+        void createLight(std::string modelPath, glm::vec3 translate, glm::vec3 scale, glm::vec3 rotate);
+
 
         /**
          * @brief destroys and recreates the swapchain; it is called whenever the swapchain becomes outdated

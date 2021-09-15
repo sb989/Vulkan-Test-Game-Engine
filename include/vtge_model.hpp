@@ -37,7 +37,7 @@ class Model{
          * @param swapchain a pointer to the swapchain being used
          */
         Model(std::string modelPath, std::string texturePath, Swapchain *swapchain);
-
+        Model(std::string modelPath, Swapchain *Swapchain);
         /**
          * @brief the destructor for a model object
          */

@@ -2,6 +2,7 @@
 #include <stdexcept>
 #include "vtge_image.hpp"
 #include "vtge_getter_and_checker_functions.hpp"
+#include <iostream>
 extern VkDevice device;
 extern VkPhysicalDevice physicalDevice;
 extern QueueFamilyIndices indices;
@@ -24,6 +25,7 @@ Swapchain::~Swapchain(){
 void Swapchain::createSwapchain(){
     VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapchainSupport.formats);
     VkPresentModeKHR presentMode = chooseSwapPresentMode(swapchainSupport.presentModes);
+    std::cout<<presentMode<<std::endl;
     VkExtent2D extent = chooseSwapExtent(swapchainSupport.capabilities);
     uint32_t imageCount = swapchainSupport.capabilities.minImageCount + 1;
     if (swapchainSupport.capabilities.maxImageCount > 0 && 
@@ -84,6 +86,7 @@ availableFormats){
 }
 
 VkPresentModeKHR Swapchain::chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes){
+    bool immediate = false;
     for (const auto& availablePresentMode : availablePresentModes){
         if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR)
             return availablePresentMode;
