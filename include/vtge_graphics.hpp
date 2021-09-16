@@ -52,6 +52,8 @@ class Graphics{
         std::string                     windowTitle = "Vulkan Test Game Engine - FPS: ";
         float                           frameCount = 0;
         float                           camXPos, camYPos, camZPos;
+        float                           oldCamYaw, oldCamPitch, camYaw, camPitch;
+        double                          cursorXPos, cursorYPos;
         float                           xVel, yVel, zVel;
         uint32_t                        mipLevels;
         uint32_t                        WIDTH, HEIGHT;
@@ -71,8 +73,9 @@ class Graphics{
         VkDescriptorPool                descriptorPool;        
         VkDebugUtilsMessengerEXT        debugMessenger;
         VkSurfaceKHR                    surface;
-        glm::mat4                       projectionMat;
-
+        glm::mat4                       viewMat, projectionMat;
+        glm::vec3                       lookDir;
+        glm::vec3                       camPos;
         /**
          * @brief sets up and creates glfw window
          */
@@ -145,6 +148,17 @@ class Graphics{
          * @param window the glfw window currently being used
          */
         void handleKeyPress(GLFWwindow* window);
+
+        /**
+         * @brief handlesMouseMovements
+         * @param window the glfw window currenty being used
+         */
+        void handleMouse(GLFWwindow* window);
+
+        /**
+         * @brief updates camera position and orientation
+         */
+        void updateCamera();
 
         /**
          * @brief updates uniform buffer for a given model
@@ -228,7 +242,15 @@ class Graphics{
          */
         SwapchainSupportDetails querySwapchainSupport(VkPhysicalDevice testDevice);
 
-
+        /**
+         * @brief finds the angle between two angles and returns a quaternion
+         * so that quaternion q times vector start equals the vector end
+         * q * start = end
+         * @param start vector for the first anle
+         * @param end vector for the second angle
+         * @return returns a glm::quat (a quaternion)
+         */
+        glm::quat angleBetweenVectors(glm::vec3 start, glm::vec3 end);
 };
 
 #endif

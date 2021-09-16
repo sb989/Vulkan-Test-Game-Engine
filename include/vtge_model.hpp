@@ -27,6 +27,10 @@ struct UniformBufferObject {
     alignas(16) glm::mat4 proj;
 };
 
+struct LightInfo{
+    alignas(16) glm::vec3 lightcolor;
+    alignas(16) glm::vec3 lightpos;
+};
 
 class Model{
     public:
@@ -54,6 +58,12 @@ class Model{
          * @return returns a glm::mat4 that contains the model matrix
          */
         glm::mat4 getModelMat(){return modelMat;}
+
+        /**
+         * @brief returns the models position
+         * @return returns a glm::vec3 decribing the models position
+         */
+        glm::vec3 getModelPos(){return glm::vec3(modelMat[3][0],modelMat[3][1], modelMat[3][2]);}
 
         /**
          * @brief updates the model matrix using the models velocity and rate of rotation
@@ -90,8 +100,8 @@ class Model{
          */
         void rotateModel(glm::vec3 rotation);
 
-        std::vector<VkBuffer>           uniformBuffers;
-        std::vector<VkDeviceMemory>     uniformBuffersMemory;
+        std::vector<VkBuffer>           uniformBuffers, lightBuffers;
+        std::vector<VkDeviceMemory>     uniformBuffersMemory, lightBuffersMemory;
         std::vector<Vertex>             vertices;
         std::vector<uint32_t>           vertexIndices;
         std::vector<VkDescriptorSet>    descriptorSets;

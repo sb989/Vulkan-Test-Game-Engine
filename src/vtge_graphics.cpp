@@ -8,7 +8,11 @@
 #include<chrono>
 #include <glm/glm.hpp>
 #include<glm/gtx/hash.hpp>
+#include<glm/gtc/quaternion.hpp>
+#include<glm/gtx/quaternion.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include "glm/gtx/string_cast.hpp"
+#include <glm/gtx/norm.hpp>
 #include <type_traits>
 #include "vtge_swapchain.hpp"
 #include "vtge_framebuffer.hpp"
@@ -28,12 +32,18 @@ VkCommandBuffer                 transferCommandBuffer, graphicsCommandBuffer;
 VkPhysicalDevice                physicalDevice = VK_NULL_HANDLE;
 VkDescriptorSetLayout           descriptorSetLayout;
 extern bool                     enableValidationLayers;
+
 Graphics::Graphics(uint32_t width, uint32_t height, std::string windowTitle){
         WIDTH = width;
         HEIGHT = height;
         this->windowTitle = windowTitle;
         setUpWindow();
         setUpGraphics();
+        camXPos = camYPos = camZPos = 0.0f;
+        camPos = glm::vec3(camXPos, camYPos, camZPos);
+        lookDir = glm::vec3(0.0f, -100.0f, 0.0f);
+        viewMat = glm::lookAt(glm::vec3(camXPos, camYPos, camZPos), lookDir + camPos, glm::vec3(0.0f, 0.0f, -1.0f));
+        camYaw = camPitch = oldCamPitch = oldCamYaw = 0.0f;
         projectionMat = glm::perspective(glm::radians(45.0f), swapchain->swapchainExtent.width / (float) swapchain->swapchainExtent.height,  0.1f, 400.0f);
 }
 
@@ -72,6 +82,12 @@ void Graphics::setUpWindow(){
     //glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
     window = glfwCreateWindow(WIDTH , HEIGHT, windowTitle.c_str(), nullptr, nullptr);
     glfwSetWindowUserPointer(window, this);
+    // glfwSetInputMode(window,GLFW_CURSOR,GLFW_CURSOR_DISABLED);
+    // if(glfwRawMouseMotionSupported()){
+    //     glfwSetInputMode(window,GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+    // }
+    cursorXPos = cursorYPos = 0.0f;
+    //glfwSetCursorPos(window, cursorXPos, cursorYPos);
     glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
 }
 
@@ -97,6 +113,8 @@ void Graphics::setUpGraphics(){
     createModel(VIKING_MODEL_PATH,VIKING_TEXTURE_PATH, glm::vec3(-4, 5, 1), glm::vec3(1.0f), glm::vec3(0.0f));
     createModel(BANANA_MODEL_PATH, BANANA_TEXTURE_PATH, glm::vec3(2, 5, -1), glm::vec3(0.05f), glm::vec3(0.0f, 90.0f, 0.0f));
     createLight("../models/cube.obj", glm::vec3(0, 5, 1), glm::vec3(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+    createModel(BANANA_MODEL_PATH, BANANA_TEXTURE_PATH, glm::vec3(2, 10, -1), glm::vec3(0.05f), glm::vec3(0.0f, 90.0f, 0.0f));
+    createModel(BANANA_MODEL_PATH, BANANA_TEXTURE_PATH, glm::vec3(2, -5, -1), glm::vec3(0.05f), glm::vec3(0.0f, 90.0f, 0.0f));
     std::cout<<"finisehd creating models!"<<std::endl;
     endSingleTimeCommands(transferCommandBuffer, transferCommandPool, transferQueue);
     std::cout<<"submitting transfer command buffer!"<<std::endl;
@@ -307,12 +325,20 @@ void Graphics::createDescriptorSetLayout(){
     uboLayoutBinding.pImmutableSamplers = nullptr;
 
     VkDescriptorSetLayoutBinding samplerLayoutBinding{};
-    samplerLayoutBinding.binding =1;
+    samplerLayoutBinding.binding = 1;
     samplerLayoutBinding.descriptorCount = 1;
     samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     samplerLayoutBinding.pImmutableSamplers = nullptr;
     samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-    std::array<VkDescriptorSetLayoutBinding, 2> bindings = {uboLayoutBinding, samplerLayoutBinding};
+
+    VkDescriptorSetLayoutBinding lightInfoLayoutBinding{};
+    lightInfoLayoutBinding.binding = 2;
+    lightInfoLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    lightInfoLayoutBinding.descriptorCount = 1;
+    lightInfoLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    lightInfoLayoutBinding.pImmutableSamplers = nullptr;
+
+    std::array<VkDescriptorSetLayoutBinding, 3> bindings = {uboLayoutBinding, samplerLayoutBinding, lightInfoLayoutBinding};
     VkDescriptorSetLayoutCreateInfo layoutInfo {};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
@@ -336,7 +362,6 @@ void Graphics::loadShaderModule(std::string vertFilePath, std::string fragFilePa
 void Graphics::createPipeline(){
     auto bindingDescription = Vertex::getBindingDescription();
     auto attributeDescriptions = Vertex::getAttributeDescriptions();
-    
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     vertexInputInfo.vertexBindingDescriptionCount = 1;
@@ -606,6 +631,9 @@ void Graphics::drawFrame(){
     }
     imagesInFlight[imageIndex] = inFlightFences[currentFrame];
     handleKeyPress(window);
+    if(glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED)
+        handleMouse(window);
+    updateCamera();
     for(int i = 0; i < modelList.size(); i++){
         updateUniformBuffer(imageIndex, modelList[i]);
     }
@@ -651,22 +679,83 @@ void Graphics::drawFrame(){
 }
 
 void Graphics::handleKeyPress(GLFWwindow* window){
-        int up_state = glfwGetKey(window, GLFW_KEY_UP);
-        int down_state = glfwGetKey(window, GLFW_KEY_DOWN);
-        int left_state = glfwGetKey(window, GLFW_KEY_LEFT);
-        int right_state = glfwGetKey(window, GLFW_KEY_RIGHT);
-        if(up_state == GLFW_PRESS || up_state == GLFW_REPEAT && down_state != GLFW_REPEAT){
-            camYPos += .3f;
-        } else if(down_state == GLFW_PRESS || down_state == GLFW_REPEAT && up_state != GLFW_REPEAT){
-            camYPos -= .3f;
-        }
-
-        if(left_state == GLFW_PRESS || left_state == GLFW_REPEAT && right_state != GLFW_REPEAT){
-            camXPos -= .3f;
-        } else if(right_state == GLFW_PRESS || right_state == GLFW_REPEAT && left_state != GLFW_REPEAT){
-            camXPos += .3f;
-        }          
+    int up_state = glfwGetKey(window, GLFW_KEY_W);
+    int down_state = glfwGetKey(window, GLFW_KEY_S);
+    int left_state = glfwGetKey(window, GLFW_KEY_A);
+    int right_state = glfwGetKey(window, GLFW_KEY_D);
+    int esc_state = glfwGetKey(window, GLFW_KEY_ESCAPE);
+    int enter_state = glfwGetKey(window, GLFW_KEY_ENTER);
+    int space_state = glfwGetKey(window, GLFW_KEY_SPACE);
+    int shift_state = glfwGetKey(window, GLFW_KEY_LEFT_SHIFT);
+    
+    if(up_state == GLFW_PRESS || up_state == GLFW_REPEAT && down_state != GLFW_REPEAT){
+        camXPos -= .3f * lookDir.x;
+        camYPos -= .3f * lookDir.y;
+    } else if(down_state == GLFW_PRESS || down_state == GLFW_REPEAT && up_state != GLFW_REPEAT){
+        camXPos += .3f * lookDir.x;
+        camYPos += .3f * lookDir.y;
     }
+
+    if(left_state == GLFW_PRESS || left_state == GLFW_REPEAT && right_state != GLFW_REPEAT){
+        camXPos += .3f * lookDir.y;
+        camYPos -= .3f * lookDir.x;
+    } else if(right_state == GLFW_PRESS || right_state == GLFW_REPEAT && left_state != GLFW_REPEAT){
+        camXPos -= .3f * lookDir.y;
+        camYPos += .3f * lookDir.x;
+    }    
+
+    if(esc_state == GLFW_PRESS || esc_state == GLFW_REPEAT && enter_state!= GLFW_REPEAT){
+        glfwSetInputMode(window,GLFW_CURSOR,GLFW_CURSOR_NORMAL);
+        glfwSetInputMode(window,GLFW_RAW_MOUSE_MOTION, GLFW_FALSE);
+    } else if(enter_state == GLFW_PRESS || enter_state == GLFW_REPEAT && esc_state != GLFW_REPEAT){
+        glfwSetInputMode(window,GLFW_CURSOR,GLFW_CURSOR_DISABLED);
+        if(glfwRawMouseMotionSupported()){
+            glfwSetInputMode(window,GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+        }
+        glfwSetCursorPos(window, 0, 0);
+    }
+
+    if(space_state == GLFW_PRESS || space_state == GLFW_REPEAT && shift_state != GLFW_REPEAT){
+        camZPos += .3f;
+    } else if(shift_state == GLFW_PRESS || shift_state == GLFW_REPEAT && space_state != GLFW_REPEAT){
+        camZPos -= .3f;
+    }   
+}
+
+void Graphics::handleMouse(GLFWwindow* window){
+    double x_pos, y_pos;
+    glfwGetCursorPos(window, &x_pos, &y_pos);
+    double xdiff = x_pos - cursorXPos;
+    double ydiff = y_pos - cursorYPos;
+    oldCamYaw = camYaw;
+    oldCamPitch = camPitch;
+    camYaw += xdiff;
+    camPitch += ydiff;
+    cursorXPos = x_pos;
+    cursorYPos = y_pos;
+    
+}
+
+void Graphics::updateCamera(){
+    glm::quat rotateQuat;
+    if(lookDir.z<= -0.9 && camPitch < oldCamPitch || lookDir.z>= 0.9 && camPitch > oldCamPitch){
+        camPitch = oldCamPitch;
+    }
+    glm::vec3 worldup = glm::vec3(0.0f,0.0f,1.0f);
+    rotateQuat = glm::angleAxis(glm::radians(oldCamPitch - camPitch), glm::cross(worldup, lookDir));
+    rotateQuat = glm::angleAxis(glm::radians(oldCamYaw - camYaw), worldup) * rotateQuat;
+    camPos = glm::vec3(camXPos, camYPos, camZPos);
+    lookDir = rotateQuat * lookDir * glm::inverse(rotateQuat);
+    lookDir = glm::normalize(lookDir);
+
+    glm::vec3 newCamRight = glm::normalize(glm::cross(worldup, lookDir));
+    glm::vec3 newCamUp = glm::normalize(glm::cross(newCamRight, lookDir));
+    viewMat = glm::mat4(
+        glm::vec4(newCamRight[0], newCamUp[0], lookDir[0], 0.0f), 
+        glm::vec4(newCamRight[1], newCamUp[1], lookDir[1], 0.0f),
+        glm::vec4(newCamRight[2], newCamUp[2], lookDir[2], 0.0f),
+        glm::vec4(-glm::dot(camPos, newCamRight), -glm::dot(camPos, newCamUp), -glm::dot(camPos, lookDir), 1.0f));
+}
 
 QueueFamilyIndices Graphics::findQueueFamilies(VkPhysicalDevice device) {
     QueueFamilyIndices ind;
@@ -722,15 +811,21 @@ void Graphics::updateUniformBuffer(uint32_t currentImage, Model *m){
     // auto currrentTime = std::chrono::high_resolution_clock::now();
     // float time = std::chrono::duration<float, std::chrono::seconds::period>(currrentTime - startTime).count();
     UniformBufferObject ubo{};
+    LightInfo li{};
     m->updateModelMat();
     ubo.model = m->getModelMat();
-    ubo.view = glm::lookAt(glm::vec3(camXPos, camYPos, camZPos), glm::vec3(camXPos, camYPos + 100.0f, camZPos), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.view = viewMat;
     ubo.proj = projectionMat;
-    ubo.proj[1][1] *= -1; //glm was designed for opengl where y coords are inverted so multiply by -1
+    //ubo.proj[1][1] *= -1; //glm was designed for opengl where y coords are inverted so multiply by -1
     void *data;
     vkMapMemory(device, m->uniformBuffersMemory[currentImage], 0, sizeof(ubo), 0, &data);
     memcpy(data, &ubo, sizeof(ubo));
     vkUnmapMemory(device, m->uniformBuffersMemory[currentImage]);
+    li.lightcolor = glm::vec3(1.0f);
+    li.lightpos = lightList[0]->getModelPos();
+    vkMapMemory(device, m->lightBuffersMemory[currentImage], 0, sizeof(li), 0, &data);
+    memcpy(data, &li, sizeof(li));
+    vkUnmapMemory(device, m->lightBuffersMemory[currentImage]);
 }
 
 void Graphics::createModel(std::string modelPath, std::string texturePath, glm::vec3 translate, glm::vec3 scale, glm::vec3 rotate){
@@ -790,6 +885,8 @@ void Graphics::cleanupSwapchain(){
         for(size_t j = 0; j<swapchain->swapchainImages.size(); j++){
             vkDestroyBuffer(device, m->uniformBuffers[j], nullptr);
             vkFreeMemory(device, m->uniformBuffersMemory[j], nullptr);
+            vkDestroyBuffer(device, m->lightBuffers[j], nullptr);
+            vkFreeMemory(device, m->lightBuffersMemory[j],nullptr);
         }
         vkDestroyDescriptorPool(device,m->descriptorPool,nullptr);
     }
@@ -798,6 +895,8 @@ void Graphics::cleanupSwapchain(){
         for(size_t j = 0; j<swapchain->swapchainImages.size(); j++){
             vkDestroyBuffer(device, m->uniformBuffers[j], nullptr);
             vkFreeMemory(device, m->uniformBuffersMemory[j], nullptr);
+            vkDestroyBuffer(device, m->lightBuffers[j], nullptr);
+            vkFreeMemory(device, m->lightBuffersMemory[j],nullptr);
         }
         vkDestroyDescriptorPool(device,m->descriptorPool,nullptr);
     }
@@ -856,4 +955,37 @@ SwapchainSupportDetails Graphics::querySwapchainSupport(VkPhysicalDevice testDev
             details.presentModes.data());
         }
         return details;
+}
+
+glm::quat Graphics::angleBetweenVectors(glm::vec3 start, glm::vec3 end){
+    //http://www.opengl-tutorial.org/intermediate-tutorials/tutorial-17-quaternions/
+    start = glm::normalize(start);
+    end = glm::normalize(end);
+    float cosTheta = glm::dot(start,end);
+    glm::vec3 rotationAxis;
+    if (cosTheta < -1 + 0.001f){
+		// special case when vectors in opposite directions:
+		// there is no "ideal" rotation axis
+		// So guess one; any will do as long as it's perpendicular to start
+		rotationAxis = glm::cross(glm::vec3(0.0f, 0.0f, 1.0f), start);
+		if (glm::length2(rotationAxis) < 0.01 ) // bad luck, they were parallel, try again!
+			rotationAxis = glm::cross(glm::vec3(1.0f, 0.0f, 0.0f), start);
+
+		rotationAxis = normalize(rotationAxis);
+		return glm::angleAxis(glm::radians(180.0f), rotationAxis);
+	}
+
+	rotationAxis = glm::cross(start, end);
+
+	float s = sqrt( (1+cosTheta)*2 );
+	float invs = 1 / s;
+
+	return glm::quat(
+		s * 0.5f, 
+		rotationAxis.x * invs,
+		rotationAxis.y * invs,
+		rotationAxis.z * invs
+	);
+
+
 }

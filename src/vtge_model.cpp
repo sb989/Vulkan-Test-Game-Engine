@@ -70,15 +70,27 @@ void Model::createUniformBuffers(){
         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
         uniformBuffers[i], uniformBuffersMemory[i]);
     }
+
+    VkDeviceSize lightBufferSize = sizeof(LightInfo);
+    lightBuffers.resize(swapchain->swapchainImages.size());
+    lightBuffersMemory.resize(swapchain->swapchainImages.size());
+
+    for(size_t i =0; i<swapchain->swapchainImages.size(); i++){
+        buffer::createBuffer(lightBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        lightBuffers[i], lightBuffersMemory[i]);
+    }
 }
 
 void Model::createDescriptorPool(){
-    std::array<VkDescriptorPoolSize, 2> poolSizes{};
+    std::array<VkDescriptorPoolSize, 3> poolSizes{};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[0].descriptorCount = static_cast<uint32_t>(swapchain->swapchainImages.size());
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     poolSizes[1].descriptorCount = static_cast<uint32_t>(swapchain->swapchainImages.size());
-
+    poolSizes[2].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSizes[2].descriptorCount = static_cast<uint32_t>(swapchain->swapchainImages.size());
+    
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
@@ -106,12 +118,16 @@ void Model::createDescriptorSets(){
         bufferInfo.buffer = uniformBuffers[i];
         bufferInfo.offset = 0;
         bufferInfo.range = sizeof(UniformBufferObject);
+        VkDescriptorBufferInfo lightBufferInfo{};
+        lightBufferInfo.buffer = lightBuffers[i];
+        lightBufferInfo.offset = 0;
+        lightBufferInfo.range = sizeof(LightInfo);
         if(texture){
             VkDescriptorImageInfo imageInfo{};
             imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
             imageInfo.imageView = texture->textureImageView;
             imageInfo.sampler = texture->textureSampler;
-            std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
+            std::array<VkWriteDescriptorSet, 3> descriptorWrites{};
             descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             descriptorWrites[0].dstSet = descriptorSets[i];
             descriptorWrites[0].dstBinding = 0;
@@ -128,10 +144,19 @@ void Model::createDescriptorSets(){
             descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
             descriptorWrites[1].descriptorCount = 1;
             descriptorWrites[1].pImageInfo = &imageInfo;
+            descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            descriptorWrites[2].dstSet = descriptorSets[i];
+            descriptorWrites[2].dstBinding = 2;
+            descriptorWrites[2].dstArrayElement = 0;
+            descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            descriptorWrites[2].descriptorCount = 1;
+            descriptorWrites[2].pBufferInfo = &lightBufferInfo;
+            descriptorWrites[2].pImageInfo = nullptr;
+            descriptorWrites[2].pTexelBufferView = nullptr;
             vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()),
             descriptorWrites.data(), 0, nullptr);
         } else{
-            std::array<VkWriteDescriptorSet, 1> descriptorWrites{};
+            std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
             descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             descriptorWrites[0].dstSet = descriptorSets[i];
             descriptorWrites[0].dstBinding = 0;
@@ -141,6 +166,15 @@ void Model::createDescriptorSets(){
             descriptorWrites[0].pBufferInfo = &bufferInfo;
             descriptorWrites[0].pImageInfo = nullptr;
             descriptorWrites[0].pTexelBufferView = nullptr;
+            descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            descriptorWrites[1].dstSet = descriptorSets[i];
+            descriptorWrites[1].dstBinding = 2;
+            descriptorWrites[1].dstArrayElement = 0;
+            descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            descriptorWrites[1].descriptorCount = 1;
+            descriptorWrites[1].pBufferInfo = &lightBufferInfo;
+            descriptorWrites[1].pImageInfo = nullptr;
+            descriptorWrites[1].pTexelBufferView = nullptr;
             vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()),
             descriptorWrites.data(), 0, nullptr);
         }        
@@ -204,6 +238,11 @@ void Model::loadModel(){
                     1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
                 };
                 vertex.color = {1.0f, 1.0f, 1.0f};
+                vertex.normal = {
+                    attrib.normals[3 * index.normal_index + 0],
+                    attrib.normals[3 * index.normal_index + 1],
+                    attrib.normals[3 * index.normal_index + 2]
+                };
                 if (uniqueVertices.count(vertex) == 0){
                     uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
                     vertices.push_back(vertex);
