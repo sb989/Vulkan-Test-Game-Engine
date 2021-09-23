@@ -10,13 +10,18 @@
 #include "vtge_getter_and_checker_functions.hpp"
 class Swapchain;
 class Framebuffer;
-
+class Pipeline;
 const std::vector<const char*> deviceExtensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
 
 const std::vector<const char*> validationLayers = {
     "VK_LAYER_KHRONOS_validation"
+};
+
+struct PushConstants{
+  //alignas(16)  glm::vec3 camPos;
+  alignas(16) glm::mat4 normMatrix;
 };
 
 class Graphics{
@@ -60,17 +65,14 @@ class Graphics{
         std::vector<VkCommandBuffer>    drawCommandBuffers;
         std::vector<VkSemaphore>        imageAvailableSemaphores, renderFinishedSemaphores;
         std::vector<VkFence>            inFlightFences, imagesInFlight;
-        std::vector<Model*>             modelList, lightList;
-        std::vector<VkShaderModule>     vertShaderModules, fragShaderModules;
-        std::vector<VkPipeline*>         pipelines;
+        std::vector<Model*>             lightList; //modelList
         Swapchain                       *swapchain;
         SwapchainSupportDetails         swapchainSupport;
         Framebuffer                     *framebuffer;
         VkInstance                      instance;
         VkRenderPass                    renderPass;
-        VkPipelineLayout                pipelineLayout;
-        VkPipeline                      graphicsPipeline, lightPipeline;
-        VkDescriptorPool                descriptorPool;        
+        Pipeline                      *graphicsPipeline, *lightPipeline;
+        //VkDescriptorPool                descriptorPool;        
         VkDebugUtilsMessengerEXT        debugMessenger;
         VkSurfaceKHR                    surface;
         glm::mat4                       viewMat, projectionMat;
@@ -114,34 +116,45 @@ class Graphics{
         /**
          * @brief creates descriptor set layout using descriptorsetlayout bindings
          */
-        void createDescriptorSetLayout();
+        //void createDescriptorSetLayout();
 
         /**
          * @brief creates pipelines
          */
         void createPipeline();
 
-        /**
-         * @brief loads a shader file and creates a shader module; adds the module to a class list
-         * @param vertFilePath file path to the vertex shader file
-         * @param fragFilePath file path to the fragment shader file
-         */
-        void loadShaderModule(std::string vertFilePath, std::string fragFilePath);
-
+        
         /**
          * @brief creates a command pool
          */
         void createCommandPool();
 
         /**
-         * @brief creates a command buffer for each framebuffer that holds draw commands
+         * @brief allocates a draw command buffers for every framebuffer
          */
-        void createDrawCommandBuffers();
+        void allocateDrawCommandBuffers();
+
+        /**
+         * @brief populates a command buffer for each framebuffer that holds draw commands
+         */
+        void populateDrawCommandBuffer(size_t index);
 
         /**
          * @brief creates sync objects
          */
         void createSyncObjects();
+
+        /**
+         * @brief waits for the fence before
+         * @return if it returns true it means what you wait for is available
+         * if it returns false it means somethings needs to be recreated and you need to skip this render pass
+         * 
+         */
+        bool waitForFence(uint32_t &imageIndex);
+
+        void submitQueue(VkSemaphore signalSemaphores[], uint32_t imageIndex);
+
+        void presentQueueToScreen(uint32_t &imageIndex, VkSemaphore signalSemaphores []);
 
         /**
          * @brief handles key presses
@@ -175,7 +188,7 @@ class Graphics{
          * @param scale a glm::vec3 that scales the model
          * @param rotate a glm::vec3 that rotates the model
          */
-        void createModel(std::string modelPath, std::string texturePath, glm::vec3 translate, glm::vec3 scale, glm::vec3 rotate);
+        void createObject(std::string modelPath, std::string texturePath, glm::vec3 translate, glm::vec3 scale, glm::vec3 rotate);
 
 
         /**
@@ -185,7 +198,7 @@ class Graphics{
          * @param scale a glm::vec3 that scales the model
          * @param rotate a glm::vec3 that rotates the model
          */
-        void createLight(std::string modelPath, glm::vec3 translate, glm::vec3 scale, glm::vec3 rotate);
+        void createLight(std::string modelPath, glm::vec3 scale, glm::vec3 rotate, glm::vec3 lightColor, glm::vec3 lightPos);
 
 
         /**
@@ -221,13 +234,7 @@ class Graphics{
          */
         QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
 
-        /**
-         * @brief creates a VkShaderModule object
-         * @param code the shader code that is inputted as a vector of chars
-         * @return returns the VkShaderModule that is created or throws a runtime error if it fails
-         */
-        VkShaderModule createShaderModule(const std::vector<char>& code);
-
+        
         /**
          * @brief allocates a command buffer from the given command pool and allows it to start storing commands
          * @param the command pool to allocate the command buffer from

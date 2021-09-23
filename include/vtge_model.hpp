@@ -22,7 +22,8 @@ class Texture;
 class Swapchain;
 
 struct UniformBufferObject {
-    alignas(16) glm::mat4 model;
+    alignas(16) glm::mat4 normMatrix;
+    alignas(16) glm::mat4 modelView;
     alignas(16) glm::mat4 view;
     alignas(16) glm::mat4 proj;
 };
@@ -31,7 +32,10 @@ struct LightInfo{
     alignas(16) glm::vec3 lightcolor;
     alignas(16) glm::vec3 lightpos;
 };
-
+const static int MAX_LIGHT_COUNT = 10000;
+static std::vector<VkBuffer>           lightBuffers;
+static std::vector<VkDeviceMemory>     lightBuffersMemory;
+static VkDescriptorSetLayout *descriptorSetLayout;
 class Model{
     public:
         /**
@@ -42,6 +46,7 @@ class Model{
          */
         Model(std::string modelPath, std::string texturePath, Swapchain *swapchain);
         Model(std::string modelPath, Swapchain *Swapchain);
+       
         /**
          * @brief the destructor for a model object
          */
@@ -100,14 +105,24 @@ class Model{
          */
         void rotateModel(glm::vec3 rotation);
 
-        std::vector<VkBuffer>           uniformBuffers, lightBuffers;
-        std::vector<VkDeviceMemory>     uniformBuffersMemory, lightBuffersMemory;
+        void setSwapchain(Swapchain *swapchain);
+
+        void cleanupMemory();
+        void updateUniformBuffer(uint32_t currentImage, glm::mat4 projection, glm::mat4 view);
+        void recreateLightBuffer();
+        static void destroyDescriptorSetLayout();
+        static VkDescriptorSetLayout * getDescriptorSetLayout();
+        static std::vector<VkBuffer> * getLightBuffers();
+        static std::vector<VkDeviceMemory> *getLightBufferMemory();
+        static void destroyLightBufferAndMemory(size_t imageCount);
+        std::vector<VkBuffer>           uniformBuffers;
+        std::vector<VkDeviceMemory>     uniformBuffersMemory;
         std::vector<Vertex>             vertices;
         std::vector<uint32_t>           vertexIndices;
-        std::vector<VkDescriptorSet>    descriptorSets;
+        std::vector<VkDescriptorSet>    *descriptorSets;
         VkBuffer                        vertexBuffer, indexBuffer;
         VkDeviceMemory                  vertexBufferMemory, indexBufferMemory;
-        VkDescriptorPool                descriptorPool;
+        VkDescriptorPool                *descriptorPool;
     private:
         std::string                     modelPath, texturePath;
         Texture                         *texture;
@@ -115,10 +130,13 @@ class Model{
         glm::mat4                       modelMat;
         glm::vec3                       velocity;
         glm::vec3                       rotation;
+
         /**
          * @brief creates a uniform buffer for each swapchain image
          */
         void createUniformBuffers();
+
+       void createDescriptorBuffer(VkDeviceSize bufferSize, std::vector<VkBuffer> *buffers, std::vector<VkDeviceMemory> *bufferMemory, VkBufferUsageFlags bufferUsage);
 
         /**
          * @brief creates a descriptor pool 
@@ -140,12 +158,16 @@ class Model{
          */
         void createIndexBuffer();
 
+        void createBufferAndCopy(VkDeviceSize bufferSize, VkBuffer *buffer, VkDeviceMemory *deviceMemory, VkBufferUsageFlags flags,void *pointer);
+
         /**
          * @brief loads the model info from the file
          */
         void loadModel();
 
+        void createDescriptorSetLayout();
 
+        void setupDescriptorSetLayout();
         
 };
 

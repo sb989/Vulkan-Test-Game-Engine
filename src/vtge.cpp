@@ -39,6 +39,7 @@ class TestEngine{
                         frameCount = 0;
                     }
             }
+            std::cout<<"out of whikle"<<std::endl;
             vkDeviceWaitIdle(device);
         }           
 };
@@ -48,6 +49,7 @@ int main() {
     try {
         app.run();
     } catch (const std::exception& e) {
+        std::cout<<"something broke"<<std::endl;
         std::cerr << e.what() << std::endl;
         return EXIT_FAILURE;
     }
