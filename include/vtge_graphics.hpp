@@ -65,7 +65,7 @@ class Graphics{
         std::vector<VkCommandBuffer>    drawCommandBuffers;
         std::vector<VkSemaphore>        imageAvailableSemaphores, renderFinishedSemaphores;
         std::vector<VkFence>            inFlightFences, imagesInFlight;
-        std::vector<Model*>             lightList; //modelList
+        //std::vector<Model*>             lightList; //modelList
         Swapchain                       *swapchain;
         SwapchainSupportDetails         swapchainSupport;
         Framebuffer                     *framebuffer;

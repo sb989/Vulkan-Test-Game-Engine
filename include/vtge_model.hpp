@@ -19,33 +19,19 @@ namespace std {
     };
 }
 class Texture;
-class Swapchain;
+//class Swapchain;
 
-struct UniformBufferObject {
-    alignas(16) glm::mat4 normMatrix;
-    alignas(16) glm::mat4 modelView;
-    alignas(16) glm::mat4 view;
-    alignas(16) glm::mat4 proj;
-};
 
-struct LightInfo{
-    alignas(16) glm::vec3 lightcolor;
-    alignas(16) glm::vec3 lightpos;
-};
-const static int MAX_LIGHT_COUNT = 10000;
-static std::vector<VkBuffer>           lightBuffers;
-static std::vector<VkDeviceMemory>     lightBuffersMemory;
-static VkDescriptorSetLayout *descriptorSetLayout;
+//static VkDescriptorSetLayout *descriptorSetLayout;
 class Model{
     public:
         /**
          * @brief the constructor for a model object
          * @param modelPath the path to the model
          * @param texturePath the path to the models texture
-         * @param swapchain a pointer to the swapchain being used
          */
-        Model(std::string modelPath, std::string texturePath, Swapchain *swapchain);
-        Model(std::string modelPath, Swapchain *Swapchain);
+        Model(std::string modelPath, std::string texturePath);
+        Model(std::string modelPath);
        
         /**
          * @brief the destructor for a model object
@@ -54,9 +40,9 @@ class Model{
 
         /**
          * @brief recreates the uniform buffer, descriptor pool and descriptor sets for a model
-         * @param swapchain the swapchain being used
+         * @param imageCount number of images in the swapchain
          */
-        void recreateUBufferPoolSets(Swapchain *swapchain);
+        void recreateUBufferPoolSets(uint32_t imageCount);
 
         /**
          * @brief returns the model matrix
@@ -68,7 +54,7 @@ class Model{
          * @brief returns the models position
          * @return returns a glm::vec3 decribing the models position
          */
-        glm::vec3 getModelPos(){return glm::vec3(modelMat[3][0],modelMat[3][1], modelMat[3][2]);}
+        glm::vec3 getModelPos();
 
         /**
          * @brief updates the model matrix using the models velocity and rate of rotation
@@ -105,28 +91,26 @@ class Model{
          */
         void rotateModel(glm::vec3 rotation);
 
-        void setSwapchain(Swapchain *swapchain);
+        // void cleanupMemory();
+        // void updateUniformBuffer(uint32_t currentImage, glm::mat4 projection, glm::mat4 view);
+        // void recreateLightBuffer();
+        // static void destroyDescriptorSetLayout();
+        // static VkDescriptorSetLayout * getDescriptorSetLayout();
+        // static std::vector<VkBuffer> * getLightBuffers();
+        // static std::vector<VkDeviceMemory> *getLightBufferMemory();
+        // static void destroyLightBufferAndMemory(size_t imageCount);
+        //std::vector<VkBuffer>           uniformBuffers;
+        //std::vector<VkDeviceMemory>     uniformBuffersMemory;
 
-        void cleanupMemory();
-        void updateUniformBuffer(uint32_t currentImage, glm::mat4 projection, glm::mat4 view);
-        void recreateLightBuffer();
-        static void destroyDescriptorSetLayout();
-        static VkDescriptorSetLayout * getDescriptorSetLayout();
-        static std::vector<VkBuffer> * getLightBuffers();
-        static std::vector<VkDeviceMemory> *getLightBufferMemory();
-        static void destroyLightBufferAndMemory(size_t imageCount);
-        std::vector<VkBuffer>           uniformBuffers;
-        std::vector<VkDeviceMemory>     uniformBuffersMemory;
         std::vector<Vertex>             vertices;
         std::vector<uint32_t>           vertexIndices;
-        std::vector<VkDescriptorSet>    *descriptorSets;
+        //std::vector<VkDescriptorSet>    *descriptorSets;
         VkBuffer                        vertexBuffer, indexBuffer;
         VkDeviceMemory                  vertexBufferMemory, indexBufferMemory;
-        VkDescriptorPool                *descriptorPool;
+        //VkDescriptorPool                *descriptorPool;
+        Texture                         *texture;
     private:
         std::string                     modelPath, texturePath;
-        Texture                         *texture;
-        Swapchain                       *swapchain;
         glm::mat4                       modelMat;
         glm::vec3                       velocity;
         glm::vec3                       rotation;
@@ -135,8 +119,6 @@ class Model{
          * @brief creates a uniform buffer for each swapchain image
          */
         void createUniformBuffers();
-
-       void createDescriptorBuffer(VkDeviceSize bufferSize, std::vector<VkBuffer> *buffers, std::vector<VkDeviceMemory> *bufferMemory, VkBufferUsageFlags bufferUsage);
 
         /**
          * @brief creates a descriptor pool 

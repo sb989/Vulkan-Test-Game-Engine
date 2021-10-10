@@ -3,131 +3,58 @@
 #include "glm/gtx/string_cast.hpp"
 #include <vtge_model.hpp>
 #include <vtge_texture.hpp>
-#include <vtge_swapchain.hpp>
 #include <array>
 #include <cstring>
 #include <tiny_obj_loader.h>
 #include <unordered_map>
-#include "vtge_descriptor.hpp"
 extern VkDevice device;
 //extern VkDescriptorSetLayout descriptorSetLayout;
-Model::Model(std::string modelPath, std::string texturePath, Swapchain *swapchain){
+Model::Model(std::string modelPath, std::string texturePath){
     this->modelPath = modelPath;
     this->texturePath = texturePath;
-    this->swapchain = swapchain;
+    //this->imageCount = imageCount;
     this->texture = new Texture(texturePath);
     this->modelMat = glm::mat4(1.0f);
     this->velocity = glm::vec3(0.0f);
     this->rotation = glm::vec3(0.0f);
-    if(!descriptorSetLayout){
-        setupDescriptorSetLayout();
-        createDescriptorBuffer(sizeof(LightInfo) * MAX_LIGHT_COUNT, &lightBuffers, &lightBuffersMemory, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-    }
+    // if(!descriptorSetLayout){
+    //     setupDescriptorSetLayout();
+    //     Descriptor::createDescriptorBuffer(sizeof(LightInfo) * MAX_LIGHT_COUNT, &lightBuffers, &lightBuffersMemory, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, imageCount);
+    // }
     loadModel();
     createVertexBuffer();
     createIndexBuffer();
-    createUniformBuffers();
-    createDescriptorPool();
-    createDescriptorSets();
+    // createUniformBuffers();
+    // createDescriptorPool();
+    // createDescriptorSets();
 }
 
-Model::Model(std::string modelPath, Swapchain *swapchain){
+Model::Model(std::string modelPath){
     this->modelPath = modelPath;
-    this->swapchain = swapchain;
+    //this->imageCount = imageCount;
     this->modelMat = glm::mat4(1.0f);
     this->velocity = glm::vec3(0.0f);
     this->rotation = glm::vec3(0.0f);
     this->texture = NULL;
-    if(!descriptorSetLayout){
-        setupDescriptorSetLayout();
-        createDescriptorBuffer(sizeof(LightInfo) * MAX_LIGHT_COUNT, &lightBuffers, &lightBuffersMemory, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-    }
+    // if(!descriptorSetLayout){
+    //     setupDescriptorSetLayout();
+    //     Descriptor::createDescriptorBuffer(sizeof(LightInfo) * MAX_LIGHT_COUNT, &lightBuffers, &lightBuffersMemory, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, imageCount);
+    // }
     loadModel();
     createVertexBuffer();
     createIndexBuffer();
-    createUniformBuffers();
-    createDescriptorPool();
-    createDescriptorSets();
+    // createUniformBuffers();
+    // createDescriptorPool();
+    // createDescriptorSets();
 }
 
 Model::~Model(){
     if(texture)
         delete texture;
-    //vkDestroyDescriptorSetLayout(device, descriptorSetLayout, nullptr);
     vkDestroyBuffer(device, indexBuffer, nullptr);
     vkFreeMemory(device, indexBufferMemory, nullptr);
     vkDestroyBuffer(device, vertexBuffer, nullptr);
     vkFreeMemory(device, vertexBufferMemory, nullptr);
-}
-
-void Model::recreateUBufferPoolSets(Swapchain *swapchain){
-    this->swapchain = swapchain;
-    createUniformBuffers();
-    createDescriptorPool();
-    createDescriptorSets();
-}
-
-void Model::createDescriptorBuffer(VkDeviceSize bufferSize, std::vector<VkBuffer> *buffers, std::vector<VkDeviceMemory> *bufferMemory, VkBufferUsageFlags bufferUsage){
-    buffers->resize(swapchain->swapchainImages.size());
-    bufferMemory->resize(swapchain->swapchainImages.size());
-    for(size_t i =0; i<swapchain->swapchainImages.size(); i++){
-        buffer::createBuffer(bufferSize, bufferUsage, 
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-        (*buffers)[i], (*bufferMemory)[i]);
-    } 
-}
-
-void Model::createUniformBuffers(){
-    createDescriptorBuffer(sizeof(UniformBufferObject), &uniformBuffers, &uniformBuffersMemory, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
-}
-
-void Model::createDescriptorSets(){
-    descriptorSets = Descriptor::allocateDescriptorSets(swapchain, *descriptorSetLayout, *descriptorPool);
-    for(size_t i = 0; i < swapchain->swapchainImages.size(); i++){
-        VkDescriptorBufferInfo bufferInfo{};
-        bufferInfo.buffer = uniformBuffers[i];
-        bufferInfo.offset = 0;
-        bufferInfo.range = sizeof(UniformBufferObject);
-        VkDescriptorBufferInfo lightInfo{};
-        lightInfo.buffer = lightBuffers[i];
-        lightInfo.offset = 0;//? might have to change not sure how storage buffers work
-        lightInfo.range = sizeof(LightInfo) * MAX_LIGHT_COUNT;
-        if(texture){
-            VkDescriptorImageInfo imageInfo{};
-            imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            imageInfo.imageView = texture->textureImageView;
-            imageInfo.sampler = texture->textureSampler;
-            std::vector<VkWriteDescriptorSet> descriptorWrites{};
-            descriptorWrites.push_back(Descriptor::createWriteDescriptorSet(
-                VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, (*descriptorSets)[i], 0,
-                0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, &lightInfo, nullptr, nullptr));
-            descriptorWrites.push_back(Descriptor::createWriteDescriptorSet(
-                VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, (*descriptorSets)[i], 1,
-                0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, &bufferInfo, nullptr, nullptr));
-            descriptorWrites.push_back(Descriptor::createWriteDescriptorSet(
-                VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, (*descriptorSets)[i], 2,
-                0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, nullptr, &imageInfo, nullptr));
-            Descriptor::updateDescriptorSets(descriptorWrites);
-        } else{
-            std::vector<VkWriteDescriptorSet> descriptorWrites{};
-            descriptorWrites.push_back(Descriptor::createWriteDescriptorSet(
-                VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, (*descriptorSets)[i], 0,
-                0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, &lightInfo, nullptr, nullptr));
-            descriptorWrites.push_back(Descriptor::createWriteDescriptorSet(
-                VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, (*descriptorSets)[i], 1,
-                0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, &bufferInfo, nullptr, nullptr));
-            Descriptor::updateDescriptorSets(descriptorWrites);
-        }        
-    }
-}
-
-void Model::createDescriptorPool(){
-    std::vector<VkDescriptorPoolSize> poolSizes = {
-        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, static_cast<uint32_t>(swapchain->swapchainImages.size())},
-        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, static_cast<uint32_t>(swapchain->swapchainImages.size())},
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(swapchain->swapchainImages.size())}
-    };
-    descriptorPool = Descriptor::createDescriptorPool(swapchain, poolSizes);
 }
 
 void Model::createVertexBuffer(){
@@ -214,78 +141,7 @@ void Model::updateModelMat(){
     moveModel(velocity);
 }
 
-void Model::cleanupMemory(){
-    std::cout<<"cleaning up model memory"<<std::endl;
-    for(size_t j = 0; j<swapchain->swapchainImages.size(); j++){
-        vkDestroyBuffer(device, uniformBuffers[j], nullptr);
-        vkFreeMemory(device, uniformBuffersMemory[j], nullptr);
-    }
-    vkDestroyDescriptorPool(device,*descriptorPool,nullptr);
-    delete descriptorPool;
-    delete descriptorSets;
-    std::cout<<"finised cleaning up model memory"<<std::endl;
+glm::vec3 Model::getModelPos(){
+    return glm::vec3(modelMat[3][0],modelMat[3][1], modelMat[3][2]);
 }
 
-void Model::updateUniformBuffer(uint32_t currentImage, glm::mat4 projection, glm::mat4 view){
-    //using push constants is a more efficent way to pass a small buffer of data to shaders
-    // static auto startTime = std::chrono::high_resolution_clock::now();
-    // auto currrentTime = std::chrono::high_resolution_clock::now();
-    // float time = std::chrono::duration<float, std::chrono::seconds::period>(currrentTime - startTime).count();
-    UniformBufferObject ubo{};
-    updateModelMat();
-    ubo.modelView = view * modelMat;
-    ubo.proj = projection;
-    ubo.view = view;
-    ubo.normMatrix = transpose(inverse(ubo.modelView));
-    //ubo.proj[1][1] *= -1; //glm was designed for opengl where y coords are inverted so multiply by -1
-    void *data;
-    vkMapMemory(device, uniformBuffersMemory[currentImage], 0, sizeof(ubo), 0, &data);
-    memcpy(data, &ubo, sizeof(ubo));
-    vkUnmapMemory(device, uniformBuffersMemory[currentImage]);
-}
-
-void Model::setupDescriptorSetLayout(){
-    auto uboLayoutBinding = Descriptor::createDescriptorSetLayoutBinding(
-        1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr);
-    auto samplerLayoutBinding = Descriptor::createDescriptorSetLayoutBinding(
-        2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
-    auto lightLayoutBinding = Descriptor::createDescriptorSetLayoutBinding(
-        0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
-
-    std::vector<VkDescriptorSetLayoutBinding> bindings = {lightLayoutBinding, uboLayoutBinding, samplerLayoutBinding};
-    descriptorSetLayout = Descriptor::createDescriptorSetLayout(&bindings);
-}
-
-void Model::destroyDescriptorSetLayout(){
-    vkDestroyDescriptorSetLayout(device, *descriptorSetLayout, nullptr);
-    delete(descriptorSetLayout);
-}
-
-void Model::recreateLightBuffer(){
-    createDescriptorBuffer(sizeof(LightInfo) * MAX_LIGHT_COUNT, &lightBuffers, &lightBuffersMemory, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT);
-}
-
-VkDescriptorSetLayout * Model::getDescriptorSetLayout(){
-    return descriptorSetLayout;
-}
-
-std::vector<VkBuffer> * Model::getLightBuffers(){
-    return &lightBuffers;
-}
-
-std::vector<VkDeviceMemory> * Model::getLightBufferMemory(){
-    return &lightBuffersMemory;
-}
-
-void Model::destroyLightBufferAndMemory(size_t imageCount){
-    for(size_t j = 0; j < imageCount; j++){
-        vkDestroyBuffer(device, lightBuffers[j], nullptr);
-        vkFreeMemory(device, lightBuffersMemory[j], nullptr);
-    }
-    lightBuffers.clear();
-    lightBuffersMemory.clear();
-}
-
-void Model::setSwapchain(Swapchain *swapchain){
-    this->swapchain = swapchain;
-}

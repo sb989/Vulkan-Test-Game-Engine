@@ -53,7 +53,8 @@ Graphics::Graphics(uint32_t width, uint32_t height, std::string windowTitle){
 Graphics::~Graphics(){
     std::cout<<"cleanup swapchain"<<std::endl;
     cleanupSwapchain();
-    Model::destroyDescriptorSetLayout();
+    Object::destroyDescriptorSetLayout();
+    Light::destroyDescriptorSetLayout();
     std::cout<<"delete model list"<<std::endl;
     Object::destroyAllObjects();
     Light::destroyAllLights();
@@ -105,13 +106,15 @@ void Graphics::setUpGraphics(){
     framebuffer = new Framebuffer(swapchain, &renderPass);
     std::cout<<"finished creating framebuffer creating model now!"<<std::endl;
     std::cout<<"creating objects"<<std::endl;
+    createLight("../models/cube.obj", glm::vec3(1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1,1,1), glm::vec3(15, 5, 1));
+    createLight("../models/cube.obj", glm::vec3(1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1,0,0), glm::vec3(15, 5, 1));
+
     createObject(VIKING_MODEL_PATH,VIKING_TEXTURE_PATH, glm::vec3(-4, 5, 1), glm::vec3(1.0f), glm::vec3(0.0f));
     createObject(BANANA_MODEL_PATH, BANANA_TEXTURE_PATH, glm::vec3(2, 5, -1), glm::vec3(0.05f), glm::vec3(0.0f, 0.0f, 0.0f));
     createObject("../models/cube.obj", "../textures/banana.jpg", glm::vec3(2, 10, -1), glm::vec3(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
     createObject(BANANA_MODEL_PATH, BANANA_TEXTURE_PATH, glm::vec3(2, -5, -1), glm::vec3(0.05f), glm::vec3(0.0f, 90.0f, 0.0f));
-    createLight("../models/cube.obj", glm::vec3(1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1,1,1), glm::vec3(15, 5, 1));
-    graphicsPipeline = new Pipeline("../shaders/obj_vert.spv", "../shaders/obj_frag.spv", swapchain, &renderPass, Model::getDescriptorSetLayout());
-    lightPipeline = new Pipeline("../shaders/light_vert.spv", "../shaders/light_frag.spv", swapchain, &renderPass, Model::getDescriptorSetLayout());
+    graphicsPipeline = new Pipeline("../shaders/obj_vert.spv", "../shaders/obj_frag.spv", swapchain, &renderPass, Object::getDescriptorSetLayout());
+    lightPipeline = new Pipeline("../shaders/light_vert.spv", "../shaders/light_frag.spv", swapchain, &renderPass, Light::getDescriptorSetLayout());
     std::cout<<"finisehd creating objects"<<std::endl;
     std::cout<<"finisehd creating models!"<<std::endl;
     
@@ -470,7 +473,8 @@ void Graphics::drawFrame(){
     float x = cos(glfwGetTime()/4.0f)/4.0f;
     float y = sin(glfwGetTime()/4.0f)/4.0f;
     glm::vec3 displacement(x,y,0.0f);
-    //lightList[0]->moveModel(displacement);
+    Model * m = Light::getLight(0)->getModel();
+    m->moveModel(displacement);
     if(glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED)
         handleMouse(window);
     updateCamera();
@@ -602,7 +606,7 @@ void Graphics::framebufferResizeCallback(GLFWwindow* window, int width, int heig
 }
 
 void Graphics::createObject(std::string modelPath, std::string texturePath, glm::vec3 translate, glm::vec3 scale, glm::vec3 rotate){
-    Object *obj = new Object(modelPath, texturePath, swapchain);
+    Object *obj = new Object(modelPath, texturePath, swapchain->swapchainImages.size());
     obj->getModel()->moveModel(translate);
     obj->getModel()->rotateModel(rotate);
     obj->getModel()->scaleModel(scale);
@@ -611,7 +615,7 @@ void Graphics::createObject(std::string modelPath, std::string texturePath, glm:
 }
 
 void Graphics::createLight(std::string modelPath, glm::vec3 scale, glm::vec3 rotate, glm::vec3 lightColor, glm::vec3 lightPos){
-    Light *l = new Light(modelPath, swapchain, lightColor, lightPos);
+    Light *l = new Light(modelPath, lightColor, lightPos, swapchain->swapchainImages.size());
     l->getModel()->rotateModel(rotate);
     l->getModel()->scaleModel(scale);
     l->getModel()->setRotation(rotate/40.0f);
@@ -650,8 +654,8 @@ void Graphics::cleanupSwapchain(){
     delete graphicsPipeline;
     delete lightPipeline;
     vkDestroyRenderPass(device, renderPass, nullptr);
-    Object::cleanupAllModelMemory();
-    Light::cleanupAllMemory(swapchain);
+    Object::cleanupAllMemory();
+    Light::cleanupAllMemory();
     //Model::destroyLightBufferAndMemory(swapchain->swapchainImages.size());
     delete swapchain;
 }
@@ -671,12 +675,12 @@ void Graphics::recreateSwapchain(){
     swapchain = new Swapchain(&surface, window, swapchainSupport);
 
     createRenderPass();
-    graphicsPipeline = new Pipeline("../shaders/obj_vert.spv", "../shaders/obj_frag.spv", swapchain, &renderPass, Model::getDescriptorSetLayout());
-    lightPipeline = new Pipeline("../shaders/light_vert.spv", "../shaders/light_frag.spv", swapchain, &renderPass, Model::getDescriptorSetLayout());
+    graphicsPipeline = new Pipeline("../shaders/obj_vert.spv", "../shaders/obj_frag.spv", swapchain, &renderPass, Object::getDescriptorSetLayout());
+    lightPipeline = new Pipeline("../shaders/light_vert.spv", "../shaders/light_frag.spv", swapchain, &renderPass, Light::getDescriptorSetLayout());
     graphicsCommandBuffer = beginSingleTimeCommands(graphicsCommandPool);
     framebuffer = new Framebuffer(swapchain, &renderPass);
-    Object::recreateAllObjectsModel(swapchain);
-    Light::recreateAllLights(swapchain);
+    Light::recreateAllLights(swapchain->swapchainImages.size());
+    Object::recreateAllObjects(swapchain->swapchainImages.size());
     endSingleTimeCommands(graphicsCommandBuffer, graphicsCommandPool, graphicsQueue);
     allocateDrawCommandBuffers();
     //createDrawCommandBuffers();

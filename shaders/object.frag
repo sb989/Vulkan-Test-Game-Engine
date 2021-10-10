@@ -7,9 +7,17 @@ layout(location = 2) in vec3 fragNormal;
 layout(location = 3) in vec3 fragPos;
 layout(location = 4) in mat4 view;
 
+struct UniformBufferObject{
+    mat4 normMatrix;
+    mat4 modelView;
+    mat4 view;
+    mat4 proj;
+};
+
 struct LightInfo{
     vec3 lightcolor;
     vec3 lightpos;
+    UniformBufferObject ubo;
 };
 
 layout(std140, binding = 0) readonly buffer LightBuffer{
