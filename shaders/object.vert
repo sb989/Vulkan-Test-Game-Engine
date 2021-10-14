@@ -22,8 +22,7 @@ layout(binding=1) uniform UniformBufferObject{
 //     //vec3 camPos;
 //     //mat4 normMatrix
 // }pushConstant;
-//modelview matrix should be calculated on the cpu and sent over 
-//normal model matrix should be calculate on the cpu too
+
 void main() {
     gl_Position = ubo.proj * ubo.modelView * vec4(inPosition, 1.0);
     fragColor = inColor;

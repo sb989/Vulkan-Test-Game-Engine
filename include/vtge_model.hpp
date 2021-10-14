@@ -30,9 +30,8 @@ class Model{
          * @param modelPath the path to the model
          * @param texturePath the path to the models texture
          */
-        Model(std::string modelPath, std::string texturePath);
-        Model(std::string modelPath);
-       
+        Model(std::string modelPath, std::string diffuseMapPath = "", std::string specularMapPath = "", glm::vec4 color = {-1,-1,-1,-1});
+        
         /**
          * @brief the destructor for a model object
          */
@@ -108,9 +107,9 @@ class Model{
         VkBuffer                        vertexBuffer, indexBuffer;
         VkDeviceMemory                  vertexBufferMemory, indexBufferMemory;
         //VkDescriptorPool                *descriptorPool;
-        Texture                         *texture;
+        Texture                         *diffuseMap, *specularMap;
     private:
-        std::string                     modelPath, texturePath;
+        std::string                     modelPath, diffuseMapPath, specularMapPath;
         glm::mat4                       modelMat;
         glm::vec3                       velocity;
         glm::vec3                       rotation;

@@ -12,11 +12,15 @@ std::vector<VkBuffer> Light::lightBuffers = {0};
 std::vector<VkDeviceMemory> Light::lightBuffersMemory = {0};
 VkDescriptorPool * Light::descriptorPool = nullptr;
 std::vector<VkDescriptorSet> * Light::descriptorSets = nullptr;
-Light::Light(std::string modelPath, glm::vec3 lightColor, glm::vec3 lightPos, uint32_t imageCount){
+Light::Light(std::string modelPath, glm::vec3 lightColor, glm::vec3 lightPos, uint32_t imageCount,
+    glm::vec3 diffuse, glm::vec3 ambient, glm::vec3 specular){
     this->m = new Model(modelPath);
     this->lightColor = lightColor;
     this->lightPos = lightPos;
     this->imageCount = imageCount;
+    this->diffuse = diffuse;
+    this->ambient = ambient;
+    this->specular = specular;
     if(!descriptorSetLayout){
         setupDescriptorSetLayout();
         Descriptor::createDescriptorBuffer(sizeof(LightInfo) * MAX_LIGHT_COUNT, &lightBuffers,
@@ -81,6 +85,10 @@ void Light::updateLightBuffer(uint32_t currentImage, glm::mat4 projection, glm::
         lightData[i].lightpos = lightList[i]->lightPos;
         lightData[i].lightcolor = lightList[i]->lightColor;
         lightData[i].ubo = lightList[i]->ubo;
+        lightData[i].ambient = lightList[i]->ambient;
+        lightData[i].diffuse = lightList[i]->diffuse;
+        lightData[i].specular = lightList[i]->specular;
+        
     }
     vkUnmapMemory(device, bufferMemory);
 }

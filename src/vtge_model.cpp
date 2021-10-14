@@ -9,48 +9,35 @@
 #include <unordered_map>
 extern VkDevice device;
 //extern VkDescriptorSetLayout descriptorSetLayout;
-Model::Model(std::string modelPath, std::string texturePath){
+Model::Model(std::string modelPath, std::string diffuseMapPath, std::string specularMapPath, glm::vec4 color){
     this->modelPath = modelPath;
-    this->texturePath = texturePath;
-    //this->imageCount = imageCount;
-    this->texture = new Texture(texturePath);
+    this->diffuseMapPath = diffuseMapPath;
+    this->specularMapPath = specularMapPath;
+    if(diffuseMapPath != "")
+        this->diffuseMap = new Texture(diffuseMapPath);
+    else if (color != glm::vec4(-1,-1,-1,-1))
+        this->diffuseMap = new Texture(64, 64, color);
+    else
+        this->diffuseMap = nullptr;
+    if(specularMapPath != "")
+        this->specularMap = new Texture(specularMapPath);
+    else
+        this->specularMap = new Texture(64, 64, glm::vec4(0,0,0,255));
     this->modelMat = glm::mat4(1.0f);
     this->velocity = glm::vec3(0.0f);
     this->rotation = glm::vec3(0.0f);
-    // if(!descriptorSetLayout){
-    //     setupDescriptorSetLayout();
-    //     Descriptor::createDescriptorBuffer(sizeof(LightInfo) * MAX_LIGHT_COUNT, &lightBuffers, &lightBuffersMemory, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, imageCount);
-    // }
     loadModel();
     createVertexBuffer();
     createIndexBuffer();
-    // createUniformBuffers();
-    // createDescriptorPool();
-    // createDescriptorSets();
+
 }
 
-Model::Model(std::string modelPath){
-    this->modelPath = modelPath;
-    //this->imageCount = imageCount;
-    this->modelMat = glm::mat4(1.0f);
-    this->velocity = glm::vec3(0.0f);
-    this->rotation = glm::vec3(0.0f);
-    this->texture = NULL;
-    // if(!descriptorSetLayout){
-    //     setupDescriptorSetLayout();
-    //     Descriptor::createDescriptorBuffer(sizeof(LightInfo) * MAX_LIGHT_COUNT, &lightBuffers, &lightBuffersMemory, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, imageCount);
-    // }
-    loadModel();
-    createVertexBuffer();
-    createIndexBuffer();
-    // createUniformBuffers();
-    // createDescriptorPool();
-    // createDescriptorSets();
-}
 
 Model::~Model(){
-    if(texture)
-        delete texture;
+    if(diffuseMap)
+        delete diffuseMap;
+    if(specularMap)
+        delete specularMap;
     vkDestroyBuffer(device, indexBuffer, nullptr);
     vkFreeMemory(device, indexBufferMemory, nullptr);
     vkDestroyBuffer(device, vertexBuffer, nullptr);

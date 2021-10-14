@@ -11,6 +11,7 @@
 class Swapchain;
 class Framebuffer;
 class Pipeline;
+class Object;
 const std::vector<const char*> deviceExtensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
@@ -188,8 +189,11 @@ class Graphics{
          * @param scale a glm::vec3 that scales the model
          * @param rotate a glm::vec3 that rotates the model
          */
-        void createObject(std::string modelPath, std::string texturePath, glm::vec3 translate, glm::vec3 scale, glm::vec3 rotate);
+        void createObject(std::string modelPath, std::string diffuseMapPath, glm::vec3 translate, glm::vec3 scale, glm::vec3 rotate, std::string specularMapPath = "");
+        void createObject(std::string modelPath, glm::vec4 color, glm::vec3 translate, glm::vec3 scale, glm::vec3 rotate);
+        void createObject(std::string modelPath, glm::vec3 translate, glm::vec3 scale, glm::vec3 rotate);
 
+        void setObjectTransform(Object *obj, glm::vec3 translate, glm::vec3 scale, glm::vec3 rotate);
 
         /**
          * @brief creates a model object and adds it to the list of models
@@ -198,7 +202,8 @@ class Graphics{
          * @param scale a glm::vec3 that scales the model
          * @param rotate a glm::vec3 that rotates the model
          */
-        void createLight(std::string modelPath, glm::vec3 scale, glm::vec3 rotate, glm::vec3 lightColor, glm::vec3 lightPos);
+        void createLight(std::string modelPath, glm::vec3 scale, glm::vec3 rotate, glm::vec3 lightColor, glm::vec3 lightPos,
+            glm::vec3 diffuse, glm::vec3 ambient, glm::vec3 specular);
 
 
         /**

@@ -17,6 +17,9 @@ struct UniformBufferObject{
 struct LightInfo{
     vec3 lightcolor;
     vec3 lightpos;
+    vec3 diffuse;
+    vec3 specular;
+    vec3 ambient;
     UniformBufferObject ubo;
 };
 
@@ -25,31 +28,39 @@ layout(std140, binding = 0) readonly buffer LightBuffer{
 } lightBuffer;
 
 layout(binding = 2) uniform sampler2D texSampler;
-// layout(binding = 2) uniform LightInfo{
-//     vec3 lightcolor;
-//     vec3 lightpos;
-// }lightInfo;
+layout(binding = 3) uniform Material {
+    vec3 ambient, diffuse, specular;
+    float shininess;
+} material;
+layout(binding = 4) uniform sampler2D specSampler;
+
 void main() {
-    //vec3 lpos = vec3(0,0,0);
-    //vec3 lcolor = vec3(1,1,1);
+    vec4 objColor = texture(texSampler, fragTexCoord);
+    vec4 objSpec = texture(specSampler, fragTexCoord);
+    vec3 finalAmb =  vec3(vec4(material.ambient, 0) + objColor);
+    vec3 finalDiff = vec3(vec4(material.diffuse, 0) + objColor);
+    vec3 finalSpec = vec3(vec4(material.specular, 0) + objSpec);
     vec3 lpos = lightBuffer.lights[0].lightpos;
     vec3 lcolor = lightBuffer.lights[0].lightcolor;
+    vec3 lightDiffuse = lcolor * lightBuffer.lights[0].diffuse;
+    vec3 lightAmbient = lightDiffuse * lightBuffer.lights[0].ambient;
     vec3 viewLightPos = vec3(view * vec4(lpos,1.0));
     vec3 norm = normalize(fragNormal);
     vec3 lightDir = normalize(viewLightPos - fragPos);
     vec3 viewDir = normalize(-fragPos);
     vec3 reflectDir = reflect(-lightDir, norm);
     
-    float ambientStrength = 0.1;
-    vec3 ambient = ambientStrength * lcolor;
+    //float ambientStrength = 0.1;
+    vec3 ambient = lightAmbient * finalAmb;
     
     float diff = max(dot(norm, lightDir), 0.0);
-    vec3 diffuse = diff * lcolor;
+    vec3 diffuse = lightDiffuse * (diff * finalDiff);
 
-    float specularStrength = 0.5;
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
-    vec3 specular = specularStrength * spec * lcolor;
+    //float specularStrength = 0.5;
 
-    outColor = vec4(ambient+diffuse+specular,1.0) * vec4(0.5,0.5,0.5,1);//texture(texSampler, fragTexCoord);
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
+    vec3 specular = lightBuffer.lights[0].specular * lcolor * (spec * finalSpec);
+
+    outColor = vec4(ambient+diffuse+specular,1.0);// * vec4(0.5,0.5,0.5,1);//texture(texSampler, fragTexCoord);
     //vec4(0.5,0.5,0.5,1) the color grey
 }

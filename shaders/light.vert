@@ -17,6 +17,9 @@ struct UniformBufferObject{
 struct LightInfo{
     vec3 lightcolor;
     vec3 lightpos;
+    vec3 diffuse;
+    vec3 specular;
+    vec3 ambient;
     UniformBufferObject ubo;
 };
 

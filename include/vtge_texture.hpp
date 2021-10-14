@@ -3,6 +3,7 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <string>
+#include<glm/glm.hpp>
 
 
 class Texture{
@@ -12,6 +13,7 @@ class Texture{
          * @param texturePath the path to the texture
          */
         Texture(std::string texturePath);
+        Texture(int height, int width, glm::vec4 color);
 
         /**
          * @brief the destructor for a texture object
@@ -58,6 +60,8 @@ class Texture{
          */
         void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
 
+
+        void createSolidColorTexture(int width, int height, glm::vec4 color);
 };
 
 #endif

@@ -106,13 +106,16 @@ void Graphics::setUpGraphics(){
     framebuffer = new Framebuffer(swapchain, &renderPass);
     std::cout<<"finished creating framebuffer creating model now!"<<std::endl;
     std::cout<<"creating objects"<<std::endl;
-    createLight("../models/cube.obj", glm::vec3(1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1,1,1), glm::vec3(15, 5, 1));
-    createLight("../models/cube.obj", glm::vec3(1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1,0,0), glm::vec3(15, 5, 1));
+    createLight("../models/cube.obj", glm::vec3(1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1,0,1), glm::vec3(15, 5, 1),
+        glm::vec3(.5), glm::vec3(.2), glm::vec3(1));
+    createLight("../models/cube.obj", glm::vec3(1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1,0,0), glm::vec3(15, 5, 1),
+        glm::vec3(.5), glm::vec3(.2), glm::vec3(1));
 
-    createObject(VIKING_MODEL_PATH,VIKING_TEXTURE_PATH, glm::vec3(-4, 5, 1), glm::vec3(1.0f), glm::vec3(0.0f));
-    createObject(BANANA_MODEL_PATH, BANANA_TEXTURE_PATH, glm::vec3(2, 5, -1), glm::vec3(0.05f), glm::vec3(0.0f, 0.0f, 0.0f));
-    createObject("../models/cube.obj", "../textures/banana.jpg", glm::vec3(2, 10, -1), glm::vec3(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+    createObject("../models/cube.obj","../textures/crate_diffuse.png", glm::vec3(2, 14, -1), glm::vec3(1.0f), glm::vec3(0.0f, 0.0f, 0.0f), "../textures/crate_specular.png");
+    createObject("../models/cube.obj", glm::vec4(255, 0, 0, 255), glm::vec3(2, 10, -1), glm::vec3(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
     createObject(BANANA_MODEL_PATH, BANANA_TEXTURE_PATH, glm::vec3(2, -5, -1), glm::vec3(0.05f), glm::vec3(0.0f, 90.0f, 0.0f));
+    createObject(VIKING_MODEL_PATH,VIKING_TEXTURE_PATH, glm::vec3(-4, 5, 1), glm::vec3(1.0f), glm::vec3(0.0f));
+    createObject(BANANA_MODEL_PATH, glm::vec3(2, 5, -1), glm::vec3(0.05f), glm::vec3(0.0f, 0.0f, 0.0f));
     graphicsPipeline = new Pipeline("../shaders/obj_vert.spv", "../shaders/obj_frag.spv", swapchain, &renderPass, Object::getDescriptorSetLayout());
     lightPipeline = new Pipeline("../shaders/light_vert.spv", "../shaders/light_frag.spv", swapchain, &renderPass, Light::getDescriptorSetLayout());
     std::cout<<"finisehd creating objects"<<std::endl;
@@ -605,17 +608,31 @@ void Graphics::framebufferResizeCallback(GLFWwindow* window, int width, int heig
     app->framebufferResized = true;
 }
 
-void Graphics::createObject(std::string modelPath, std::string texturePath, glm::vec3 translate, glm::vec3 scale, glm::vec3 rotate){
-    Object *obj = new Object(modelPath, texturePath, swapchain->swapchainImages.size());
+void Graphics::createObject(std::string modelPath, std::string diffuseMapPath, glm::vec3 translate, glm::vec3 scale, glm::vec3 rotate, std::string specularMapPath){
+    Object *obj = new Object(modelPath, swapchain->swapchainImages.size(), diffuseMapPath, specularMapPath);
+    setObjectTransform(obj, translate, scale, rotate);
+}
+
+void Graphics::createObject(std::string modelPath, glm::vec4 color, glm::vec3 translate, glm::vec3 scale, glm::vec3 rotate){
+    Object *obj = new Object(modelPath, swapchain->swapchainImages.size(), "","",color);
+    setObjectTransform(obj, translate, scale, rotate);
+}
+
+void Graphics::createObject(std::string modelPath, glm::vec3 translate, glm::vec3 scale, glm::vec3 rotate){
+    Object *obj = new Object(modelPath, swapchain->swapchainImages.size());
+    setObjectTransform(obj, translate, scale, rotate);
+}
+
+void Graphics::setObjectTransform(Object *obj, glm::vec3 translate, glm::vec3 scale, glm::vec3 rotate){
     obj->getModel()->moveModel(translate);
     obj->getModel()->rotateModel(rotate);
     obj->getModel()->scaleModel(scale);
     obj->getModel()->setRotation(rotate/40.0f);
-    
 }
 
-void Graphics::createLight(std::string modelPath, glm::vec3 scale, glm::vec3 rotate, glm::vec3 lightColor, glm::vec3 lightPos){
-    Light *l = new Light(modelPath, lightColor, lightPos, swapchain->swapchainImages.size());
+void Graphics::createLight(std::string modelPath, glm::vec3 scale, glm::vec3 rotate, glm::vec3 lightColor, glm::vec3 lightPos,
+    glm::vec3 diffuse, glm::vec3 ambient, glm::vec3 specular){
+    Light *l = new Light(modelPath, lightColor, lightPos, swapchain->swapchainImages.size(), diffuse, ambient, specular);
     l->getModel()->rotateModel(rotate);
     l->getModel()->scaleModel(scale);
     l->getModel()->setRotation(rotate/40.0f);

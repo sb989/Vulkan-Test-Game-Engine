@@ -10,13 +10,14 @@ class Model;
 class Swapchain;
 class Pipeline;
 struct Material{
-    glm::vec3 ambient, diffuse, specular;
-    float shininess;
+    alignas(16) glm::vec3 ambient;
+    alignas(16) glm::vec3 diffuse;
+    alignas(16) glm::vec3 specular;
+    alignas(4) float shininess;
 };
 class Object{
     public:
-        Object(std::string modelPath, std::string texturePath, uint32_t imageCount);
-        Object(std::string modelPath, uint32_t imageCount);
+        Object(std::string modelPath, uint32_t imageCount, std::string diffuseMapPath = "", std::string specularMapPath = "", glm::vec4 color = {0,0,0,255});
         ~Object();
         static void destroyAllObjects();
         static void cleanupAllMemory();
@@ -38,12 +39,14 @@ class Object{
         void createDescriptorPool();
         void createDescriptorSets();
         void updateUniformBuffer(uint32_t currentImage, glm::mat4 projection, glm::mat4 view);
+        void updateMaterial(Material mat);
         void cleanupMemory();
         void setupDescriptorSetLayout();
         void createDescriptorBuffers();
         std::vector<VkBuffer> material, uniformBuffers;
         std::vector<VkDeviceMemory> uniformBuffersMemory, materialMemory;
         std::vector<VkDescriptorSet> * descriptorSets;
+        //Material mtrl;
         uint32_t imageCount;
         VkDescriptorPool *descriptorPool;
         static VkDescriptorSetLayout * descriptorSetLayout;

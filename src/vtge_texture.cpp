@@ -1,7 +1,7 @@
 #include "vtge_texture.hpp"
 #define GLFW_INCLUDE_VULKAN
 #define STB_IMAGE_IMPLEMENTATION
-
+#include <iostream>
 #include <GLFW/glfw3.h>
 #include <stb_image.h>
 #include <stdexcept>
@@ -20,11 +20,57 @@ extern VkQueue graphicsQueue, transferQueue;
     createTextureSampler();
 }
 
+Texture::Texture(int height, int width, glm::vec4 color){
+    createSolidColorTexture(height, width, color);
+    createTextureImageView();
+    createTextureSampler();
+    this->texturePath = "";
+}
+
 Texture::~Texture(){
     vkDestroySampler(device, textureSampler, nullptr);
     vkDestroyImageView(device, textureImageView, nullptr);
     vkDestroyImage(device, textureImage, nullptr);
     vkFreeMemory(device, textureImageMemory, nullptr);
+}
+
+void Texture::createSolidColorTexture(int width, int height, glm::vec4 color){
+    mipLevels = 1;
+    unsigned char pixels[width * height * 4];
+    for(int h = 0; h<height; h++){
+        for(int w = 0; w < width; w++){
+            int index = 4*(width*h + w);
+            pixels[index+0] = color.r;
+            pixels[index+1] = color.g;
+            pixels[index+2] = color.b;
+            pixels[index+3] = color.a;
+        }
+    }
+
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingBufferMemory;
+    VkDeviceSize imageSize = width * height * 4;
+    buffer::createStagingBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        stagingBuffer, stagingBufferMemory);
+
+    void *data;
+    vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
+    memcpy(data, pixels, static_cast<size_t>(imageSize));
+    vkUnmapMemory(device, stagingBufferMemory);
+
+    image::createImage(width, height, 1, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL,
+     VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
+
+    image::transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB,
+        VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, transferCommandBuffer, 1);
+    copyBufferToImage(stagingBuffer, textureImage, static_cast<uint32_t>(width),
+        static_cast<uint32_t>(height));
+    image::transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, graphicsCommandBuffer, 1);
+
 }
 
 void Texture::createTextureImage(){
@@ -36,6 +82,7 @@ void Texture::createTextureImage(){
     if(!pixels){
         throw std::runtime_error("failed to load texture image!");
     }
+
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
     buffer::createStagingBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,

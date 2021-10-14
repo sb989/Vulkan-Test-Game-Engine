@@ -9,8 +9,21 @@
 static std::vector <Object*>objectList{};
 extern VkDevice device;
 VkDescriptorSetLayout * Object::descriptorSetLayout = nullptr;
-Object::Object(std::string modelPath, std::string texturePath, uint32_t imageCount){
-    this->m = new Model(modelPath, texturePath);
+Material defaultMaterial = {
+    glm::vec3(0.5,0.5,0.5),
+    glm::vec3(0.5,0.5,0.5),
+    glm::vec3(0.7,0.7,0.7),
+    32.0f
+};
+Material blankMaterial = {
+    glm::vec3(0,0,0),
+    glm::vec3(0,0,0),
+    glm::vec3(0.5,0.5,0.5),
+    32.0f
+};
+Object::Object(std::string modelPath, uint32_t imageCount, std::string diffuseMapPath, std::string specularMapPath, glm::vec4 color){
+    
+    this->m = new Model(modelPath, diffuseMapPath, specularMapPath, color);
     this->imageCount = imageCount;
     objectList.push_back(this);
     isVisible = true;
@@ -20,15 +33,15 @@ Object::Object(std::string modelPath, std::string texturePath, uint32_t imageCou
     createDescriptorBuffers();
     createDescriptorPool();
     createDescriptorSets();
-    
-}   
-
-Object::Object(std::string modelPath, uint32_t imageCount){
-    this->m = new Model(modelPath);
-    this->imageCount = imageCount;
-    objectList.push_back(this);
-    isVisible = true;
-}   
+    Material mtrl;
+    if(diffuseMapPath != "" || color != glm::vec4(0,0,0,255))
+        mtrl = blankMaterial;
+    else
+        mtrl = defaultMaterial;
+    if(specularMapPath != "")
+        mtrl.specular = glm::vec3(0);
+    updateMaterial(mtrl);
+}
 
 Object::~Object(){
     delete m;
@@ -43,20 +56,22 @@ void Object::setupDescriptorSetLayout(){
         0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
     auto materialLayoutBinding = Descriptor::createDescriptorSetLayoutBinding(
         3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
-    
-    std::vector<VkDescriptorSetLayoutBinding> bindings = {lightLayoutBinding, uboLayoutBinding, samplerLayoutBinding, materialLayoutBinding};
+    auto specMapLayoutBinding = Descriptor::createDescriptorSetLayoutBinding(
+        4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
+    std::vector<VkDescriptorSetLayoutBinding> bindings = {lightLayoutBinding, uboLayoutBinding, samplerLayoutBinding, materialLayoutBinding, specMapLayoutBinding};
     Object::descriptorSetLayout = Descriptor::createDescriptorSetLayout(&bindings);
 }
 
 void Object::createDescriptorBuffers(){
     Descriptor::createDescriptorBuffer(sizeof(UniformBufferObject), &uniformBuffers, &uniformBuffersMemory, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, imageCount);
+    Descriptor::createDescriptorBuffer(sizeof(Material), &material, &materialMemory, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, imageCount);
 }
 
 void Object::createDescriptorPool(){
     std::vector<VkDescriptorPoolSize> poolSizes = {
         {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, imageCount},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2 * imageCount},
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, imageCount},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2 * imageCount},
     };
     descriptorPool = Descriptor::createDescriptorPool(imageCount, poolSizes);
 }
@@ -77,16 +92,31 @@ void Object::createDescriptorSets(){
     uniformBuffer.range = sizeof(UniformBufferObject);
     uniformBuffer.binding = 1;
     uniformBuffer.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    VtgeBufferInfo materialBuffer {};
+    materialBuffer.buffer = material.data();
+    materialBuffer.offset = 0;
+    materialBuffer.range = sizeof(Material);
+    materialBuffer.binding = 3;
+    materialBuffer.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     bufferInfos.push_back(lightBuffer);
     bufferInfos.push_back(uniformBuffer);
+    bufferInfos.push_back(materialBuffer);
     VtgeImageInfo imageBuffer{};
     imageBuffer.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    imageBuffer.view = m->texture->textureImageView;
-    imageBuffer.sampler = m->texture->textureSampler;
+    imageBuffer.view = m->diffuseMap->textureImageView;
+    imageBuffer.sampler = m->diffuseMap->textureSampler;
     imageBuffer.binding = 2;
     imageBuffer.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    VtgeImageInfo specMapBuffer{};
+    specMapBuffer.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    specMapBuffer.view = m->specularMap->textureImageView;
+    specMapBuffer.sampler = m->specularMap->textureSampler;
+    specMapBuffer.binding = 4;
+    specMapBuffer.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     imageInfos.push_back(imageBuffer);
-    Descriptor::populateDescriptorBuffer(descriptorSets,imageCount, bufferInfos, imageInfos );
+    imageInfos.push_back(specMapBuffer);
+    
+    Descriptor::populateDescriptorBuffer(descriptorSets,imageCount, bufferInfos, imageInfos);
 }
 
 void Object::drawAllObjects(VkCommandBuffer *commandBuffer, Pipeline *pipeline, int index){
@@ -135,6 +165,15 @@ void Object::updateUniformBuffer(uint32_t currentImage, glm::mat4 projection, gl
     vkUnmapMemory(device, uniformBuffersMemory[currentImage]);
 }
 
+void Object::updateMaterial(Material mat){
+    for(int currentImage = 0; currentImage < imageCount; currentImage++){
+        void * data;
+        vkMapMemory(device, materialMemory[currentImage], 0, sizeof(mat), 0, &data);
+        memcpy(data, &mat, sizeof(mat));
+        vkUnmapMemory(device, materialMemory[currentImage]);
+    }
+}
+
 void Object::setImageCount(uint32_t imageCount){
     this->imageCount = imageCount;
 }
@@ -167,6 +206,8 @@ void Object::cleanupMemory(){
     for(size_t j = 0; j < imageCount; j++){
         vkDestroyBuffer(device, uniformBuffers[j], nullptr);
         vkFreeMemory(device, uniformBuffersMemory[j], nullptr);
+        vkDestroyBuffer(device, material[j], nullptr);
+        vkFreeMemory(device, materialMemory[j], nullptr);
     }
     vkDestroyDescriptorPool(device,*descriptorPool,nullptr);
     delete descriptorPool;

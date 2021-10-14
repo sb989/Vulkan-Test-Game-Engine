@@ -11,6 +11,9 @@ class Pipeline;
 struct LightInfo{
     alignas(16) glm::vec3 lightcolor;
     alignas(16) glm::vec3 lightpos;
+    alignas(16) glm::vec3 diffuse;
+    alignas(16) glm::vec3 specular;
+    alignas(16) glm::vec3 ambient;
     alignas(16) UniformBufferObject ubo;
 };
 
@@ -18,7 +21,8 @@ struct LightInfo{
 
 class Light{
     public:
-        Light(std::string modelPath, glm::vec3 lightColor, glm::vec3 lightPos, uint32_t imageCount);
+        Light(std::string modelPath, glm::vec3 lightColor, glm::vec3 lightPos, uint32_t imageCount,
+            glm::vec3 diffuse, glm::vec3 ambient, glm::vec3 specular);
         ~Light();
         static void destroyAllLights();
         static void recreateAllLights(uint32_t imageCount);
@@ -42,6 +46,7 @@ class Light{
         Model *m;
         uint32_t imageCount;
         glm::vec3 lightColor, lightPos;
+        glm::vec3 diffuse, ambient, specular;
         UniformBufferObject ubo;
         //std::vector<VkBuffer> uniformBuffers;
         //std::vector<VkDeviceMemory> uniformBuffersMemory;
