@@ -9,15 +9,10 @@
 class Model;
 class Swapchain;
 class Pipeline;
-struct Material{
-    alignas(16) glm::vec3 ambient;
-    alignas(16) glm::vec3 diffuse;
-    alignas(16) glm::vec3 specular;
-    alignas(4) float shininess;
-};
+
 class Object{
     public:
-        Object(std::string modelPath, uint32_t imageCount, std::string diffuseMapPath = "", std::string specularMapPath = "", glm::vec4 color = {0,0,0,255});
+        Object(std::string modelPath, uint32_t imageCount, std::string diffuseMapPath = "", std::string specularMapPath = "", glm::vec4 color = {-1,-1,-1,-1});
         ~Object();
         static void destroyAllObjects();
         static void cleanupAllMemory();
@@ -29,27 +24,12 @@ class Object{
         bool getIsVisible(){return isVisible;}
         void setIsVisible(bool visible){isVisible = visible;}
         Model *getModel(){return m;}
-        static VkDescriptorSetLayout * getDescriptorSetLayout();
-        void recreateUBufferPoolSets(uint32_t imageCount);
         void setImageCount(uint32_t imageCount);
-        static void destroyDescriptorSetLayout();
     private:
         Model *m;
         bool isVisible;
-        void createDescriptorPool();
-        void createDescriptorSets();
-        void updateUniformBuffer(uint32_t currentImage, glm::mat4 projection, glm::mat4 view);
-        void updateMaterial(Material mat);
         void cleanupMemory();
-        void setupDescriptorSetLayout();
-        void createDescriptorBuffers();
-        std::vector<VkBuffer> material, uniformBuffers;
-        std::vector<VkDeviceMemory> uniformBuffersMemory, materialMemory;
-        std::vector<VkDescriptorSet> * descriptorSets;
-        //Material mtrl;
         uint32_t imageCount;
-        VkDescriptorPool *descriptorPool;
-        static VkDescriptorSetLayout * descriptorSetLayout;
 
 
 };

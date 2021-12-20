@@ -3,33 +3,93 @@
 #include "vtge_swapchain.hpp"
 #include "vtge_pipeline.hpp"
 #include "vtge_descriptor.hpp"
+#include "glm/gtx/string_cast.hpp"
 #include <iostream>
 extern VkDevice device;
 //extern VkDescriptorSetLayout descriptorSetLayout;
-static std::vector<Light*> lightList {};
+static std::vector<Light*> directionalLightList, spotLightList, pointLightList;
 VkDescriptorSetLayout * Light::descriptorSetLayout = nullptr;
-std::vector<VkBuffer> Light::lightBuffers = {0};
-std::vector<VkDeviceMemory> Light::lightBuffersMemory = {0};
+std::vector<VkBuffer> Light::directionalLightBuffers = {0};
+std::vector<VkBuffer> Light::spotLightBuffers = {0};
+std::vector<VkBuffer> Light::pointLightBuffers = {0};
+std::vector<VkDeviceMemory> Light::directionalLightBuffersMemory = {0};
+std::vector<VkDeviceMemory> Light::spotLightBuffersMemory = {0};
+std::vector<VkDeviceMemory> Light::pointLightBuffersMemory = {0};
 VkDescriptorPool * Light::descriptorPool = nullptr;
 std::vector<VkDescriptorSet> * Light::descriptorSets = nullptr;
-Light::Light(std::string modelPath, glm::vec3 lightColor, glm::vec3 lightPos, uint32_t imageCount,
-    glm::vec3 diffuse, glm::vec3 ambient, glm::vec3 specular){
-    this->m = new Model(modelPath);
-    this->lightColor = lightColor;
+uint32_t Light::imageCount = 0;
+
+Light::Light(std::string modelPath, glm::vec4 lightPos, uint32_t imageCount,
+    glm::vec4 diffuse, glm::vec4 ambient, glm::vec4 specular,
+    float constant, float linear, float quadratic){
+    //constructor for a point light
+    this->m = new Model(modelPath, imageCount, "", "", diffuse*255.0f);
     this->lightPos = lightPos;
-    this->imageCount = imageCount;
+    this->diffuse = diffuse;
+    this->ambient = ambient;
+    this->specular = specular;
+    this->constant = constant;
+    this->linear = linear;
+    this->quadratic = quadratic;
+    //Descriptor::createDescriptorBuffer(sizeof(UniformBufferObject), &uniformBuffers, &uniformBuffersMemory, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, imageCount);
+    if(!descriptorSetLayout){
+        this->imageCount = imageCount;
+        initLights();
+    }
+    pointLightList.push_back(this);
+    m->moveModel(lightPos);
+}
+
+Light::Light(std::string modelPath, glm::vec4 lightPos, glm::vec4 direction, uint32_t imageCount,
+    glm::vec4 diffuse, glm::vec4 ambient, glm::vec4 specular){
+    //constructor for a directional light
+    this->m = new Model(modelPath, imageCount, "", "", diffuse*255.0f);
+    this->lightPos = lightPos;
+    this->direction = direction;
     this->diffuse = diffuse;
     this->ambient = ambient;
     this->specular = specular;
     if(!descriptorSetLayout){
-        setupDescriptorSetLayout();
-        Descriptor::createDescriptorBuffer(sizeof(LightInfo) * MAX_LIGHT_COUNT, &lightBuffers,
-            &lightBuffersMemory, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, imageCount);
-        createDescriptorPool();
-        createDescriptorSets();
+        this->imageCount = imageCount;
+        initLights();
     }
-    lightList.push_back(this);
+    directionalLightList.push_back(this);
     m->moveModel(lightPos);
+}
+
+Light::Light(std::string modelPath, glm::vec4 lightPos, glm::vec4 direction, uint32_t imageCount,
+    glm::vec4 diffuse, glm::vec4 ambient, glm::vec4 specular,
+    float constant, float linear, float quadratic, float cutOff, float outerCutOff){
+    //constructor for a spot light
+    this->m = new Model(modelPath, imageCount, "", "", diffuse*255.0f);
+    this->lightPos = lightPos;
+    this->diffuse = diffuse;
+    this->ambient = ambient;
+    this->specular = specular;
+    this->constant = constant;
+    this->linear = linear;
+    this->quadratic = quadratic;
+    this->cutOff = cutOff;
+    this->outerCutOff = outerCutOff;
+    //Descriptor::createDescriptorBuffer(sizeof(UniformBufferObject), &uniformBuffers, &uniformBuffersMemory, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, imageCount);
+    if(!descriptorSetLayout){
+        this->imageCount = imageCount;
+        initLights();
+    }
+    spotLightList.push_back(this);
+    m->moveModel(lightPos);
+}
+
+void Light::initLights(){
+    setupDescriptorSetLayout();
+    Descriptor::createDescriptorBuffer(16+ sizeof(DirectionalLightInfo) * MAX_LIGHT_COUNT, &directionalLightBuffers,
+        &directionalLightBuffersMemory, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, imageCount);
+    Descriptor::createDescriptorBuffer(16+ sizeof(SpotLightInfo) * MAX_LIGHT_COUNT, &spotLightBuffers,
+        &spotLightBuffersMemory, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, imageCount);
+    Descriptor::createDescriptorBuffer(16 + sizeof(PointLightInfo) * MAX_LIGHT_COUNT, &pointLightBuffers,
+        &pointLightBuffersMemory, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, imageCount);
+    createDescriptorPool();
+    createDescriptorSets();
 }
 
 Light::~Light(){
@@ -37,17 +97,22 @@ Light::~Light(){
 }
 
 void Light::setupDescriptorSetLayout(){
-    auto lightLayoutBinding = Descriptor::createDescriptorSetLayoutBinding(
-        0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr);
+    auto directionalLayoutBinding = Descriptor::createDescriptorSetLayoutBinding(
+        0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
+    auto spotLayoutBinding = Descriptor::createDescriptorSetLayoutBinding(
+        1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
+    auto pointLayoutBinding = Descriptor::createDescriptorSetLayoutBinding(
+        2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
     // auto uboLayoutBinding = Descriptor::createDescriptorSetLayoutBinding(
-    //     1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr);
-    std::vector<VkDescriptorSetLayoutBinding> bindings = {lightLayoutBinding};
+    //     3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr);
+    std::vector<VkDescriptorSetLayoutBinding> bindings = {directionalLayoutBinding, spotLayoutBinding, pointLayoutBinding};
     descriptorSetLayout = Descriptor::createDescriptorSetLayout(&bindings);
 }
 
 void Light::createDescriptorPool(){
     std::vector<VkDescriptorPoolSize> poolSizes = {
-        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, imageCount}
+        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 3*imageCount},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, imageCount}
     };
     descriptorPool = Descriptor::createDescriptorPool(imageCount, poolSizes);
 }
@@ -56,86 +121,160 @@ void Light::createDescriptorSets(){
     descriptorSets = Descriptor::allocateDescriptorSets(imageCount, *descriptorSetLayout, *descriptorPool);
     std::vector<VtgeBufferInfo> bufferInfos;
     std::vector<VtgeImageInfo> imageInfos;
-    VtgeBufferInfo lightBuffer {};
-    lightBuffer.buffer = lightBuffers.data();
-    lightBuffer.offset = 0;
-    lightBuffer.range = sizeof(LightInfo) * MAX_LIGHT_COUNT;
-    lightBuffer.binding = 0;
-    lightBuffer.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    bufferInfos.push_back(lightBuffer);
+    VtgeBufferInfo directionalLightBufferInfo {};
+    directionalLightBufferInfo.buffer = directionalLightBuffers.data();
+    directionalLightBufferInfo.offset = 0;
+    directionalLightBufferInfo.range = 16 + sizeof(DirectionalLightInfo) * MAX_LIGHT_COUNT;
+    directionalLightBufferInfo.binding = 0;
+    directionalLightBufferInfo.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    VtgeBufferInfo spotLightBufferInfo {};
+    spotLightBufferInfo.buffer = spotLightBuffers.data();
+    spotLightBufferInfo.offset = 0;
+    spotLightBufferInfo.range = 16 + sizeof(SpotLightInfo) * MAX_LIGHT_COUNT;
+    spotLightBufferInfo.binding = 1;
+    spotLightBufferInfo.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    VtgeBufferInfo pointLightBufferInfo {};
+    pointLightBufferInfo.buffer = pointLightBuffers.data();
+    pointLightBufferInfo.offset = 0;
+    pointLightBufferInfo.range = 16 + sizeof(PointLightInfo) * MAX_LIGHT_COUNT;
+    pointLightBufferInfo.binding = 2;
+    pointLightBufferInfo.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    bufferInfos.push_back(directionalLightBufferInfo);
+    bufferInfos.push_back(pointLightBufferInfo);
+    bufferInfos.push_back(spotLightBufferInfo);
     Descriptor::populateDescriptorBuffer(descriptorSets,imageCount, bufferInfos, imageInfos);
 }
 
 void Light::updateAllLights(uint32_t currentImage, glm::mat4 projection, glm::mat4 view){
-    updateLightBuffer(currentImage, projection, view);
+    updateLightBuffers(currentImage, projection, view);
 }
 
 // void Light::updateLight(uint32_t currentImage, glm::mat4 projection, glm::mat4 view){
 //     updateLightBuffer(currentImage, projection, view);
 // }
 
-void Light::updateLightBuffer(uint32_t currentImage, glm::mat4 projection, glm::mat4 view){
+void Light::updateLightBuffers(uint32_t currentImage, glm::mat4 projection, glm::mat4 view){
+    updateDirectionalLightBuffer(currentImage, projection, view, directionalLightList, directionalLightBuffersMemory);
+    updateSpotLightBuffer(currentImage, projection, view, spotLightList, spotLightBuffersMemory);
+    updatePointLightBuffer(currentImage, projection, view,pointLightList , pointLightBuffersMemory);
+}
+
+void Light::updateDirectionalLightBuffer(uint32_t currentImage, glm::mat4 projection, glm::mat4 view, 
+    std::vector<Light *> lightList, std::vector<VkDeviceMemory> lightBuffersMemory){
     void *data;
-   
+    int lightCount = (int)lightList.size();
     VkDeviceMemory bufferMemory = lightBuffersMemory[currentImage];
-    vkMapMemory(device, bufferMemory, 0, sizeof(LightInfo) * lightList.size(), 0, &data);
-    LightInfo *lightData = (LightInfo*) data;
-    for(int i = 0; i < lightList.size(); i++){
-        lightList[i]->updateUniformBuffer(currentImage, projection, view);
-        lightData[i].lightpos = lightList[i]->lightPos;
-        lightData[i].lightcolor = lightList[i]->lightColor;
-        lightData[i].ubo = lightList[i]->ubo;
+    vkMapMemory(device, bufferMemory, 0, 16 + sizeof(DirectionalLightInfo) * lightList.size(), 0, &data);
+    memcpy(data, &(lightCount), sizeof(int));
+    char * offset = (char *) data;
+    offset = offset + 16;
+    DirectionalLightInfo *lightData = (DirectionalLightInfo*) offset;
+    for(int i = 0; i < lightCount; i++){
+        lightList[i]->m->updateModelMat(currentImage, projection, view);
         lightData[i].ambient = lightList[i]->ambient;
         lightData[i].diffuse = lightList[i]->diffuse;
         lightData[i].specular = lightList[i]->specular;
-        
+        lightData[i].direction = lightList[i]->direction;
+    }
+    std::cout<<"ambient"<<glm::to_string(lightData[0].ambient)<<std::endl;
+    std::cout<<"diffuse"<<glm::to_string(lightData[0].diffuse)<<std::endl;
+    std::cout<<"specular"<<glm::to_string(lightData[0].specular)<<std::endl;
+    vkUnmapMemory(device, bufferMemory);
+}
+void Light::updatePointLightBuffer(uint32_t currentImage, glm::mat4 projection, glm::mat4 view, 
+    std::vector<Light *> lightList, std::vector<VkDeviceMemory> lightBuffersMemory){
+    void *data;
+    int lightCount = (int)lightList.size();
+    VkDeviceMemory bufferMemory = lightBuffersMemory[currentImage];
+    vkMapMemory(device, bufferMemory, 0, 16 + sizeof(PointLightInfo) * lightList.size(), 0, &data);
+    memcpy(data, &(lightCount), sizeof(int));
+    char * offset = (char *) data;
+    offset = offset + 16;
+    PointLightInfo *lightData = (PointLightInfo*) offset;
+    for(int i = 0; i < lightCount; i++){
+        lightList[i]->m->updateModelMat(currentImage, projection, view);
+        lightList[i]->lightPos = lightList[i]->m->getModelPos();
+        lightData[i].lightpos = lightList[i]->lightPos;
+        lightData[i].ambient = lightList[i]->ambient;
+        lightData[i].diffuse = lightList[i]->diffuse;
+        lightData[i].specular = lightList[i]->specular;
+        lightData[i].constant = lightList[i]->constant;
+        lightData[i].linear = lightList[i]->linear;
+        lightData[i].quadratic = lightList[i]->quadratic;
+    }
+    vkUnmapMemory(device, bufferMemory);
+}
+void Light::updateSpotLightBuffer(uint32_t currentImage, glm::mat4 projection, glm::mat4 view, 
+    std::vector<Light *> lightList, std::vector<VkDeviceMemory> lightBuffersMemory){
+    void *data;
+    int lightCount = (int)lightList.size();
+    VkDeviceMemory bufferMemory = lightBuffersMemory[currentImage];
+    vkMapMemory(device, bufferMemory, 0, 16 + sizeof(SpotLightInfo) * lightList.size(), 0, &data);
+    memcpy(data, &(lightCount), sizeof(int));
+    char * offset = (char *) data;
+    offset = offset + 16;
+    SpotLightInfo *lightData = (SpotLightInfo*) offset;
+    for(int i = 0; i < lightCount; i++){
+        lightList[i]->m->updateModelMat(currentImage, projection, view);
+        lightList[i]->lightPos = lightList[i]->m->getModelPos();
+        lightData[i].lightpos = lightList[i]->lightPos;
+        lightData[i].ambient = lightList[i]->ambient;
+        lightData[i].diffuse = lightList[i]->diffuse;
+        lightData[i].specular = lightList[i]->specular;
+        lightData[i].constant = lightList[i]->constant;
+        lightData[i].linear = lightList[i]->linear;
+        lightData[i].quadratic = lightList[i]->quadratic;
+        lightData[i].direction = lightList[i]->direction;
+        lightData[i].cutOff = lightList[i]->cutOff;
+        lightData[i].outerCutOff = lightList[i]->outerCutOff;
     }
     vkUnmapMemory(device, bufferMemory);
 }
 
+
+//Light::updateUniformBuffer is no longer needed
 void Light::updateUniformBuffer(uint32_t currentImage, glm::mat4 projection, glm::mat4 view){
-    //using push constants is a more efficent way to pass a small buffer of data to shaders
-    // static auto startTime = std::chrono::high_resolution_clock::now();
-    // auto currrentTime = std::chrono::high_resolution_clock::now();
-    // float time = std::chrono::duration<float, std::chrono::seconds::period>(currrentTime - startTime).count();
-    //UniformBufferObject ubo{};
-    m->updateModelMat();
-    lightPos = m->getModelPos();
-    ubo.modelView = view * m->getModelMat();
-    ubo.proj = projection;
-    ubo.view = view;
-    ubo.normMatrix = transpose(inverse(ubo.modelView));
-    //ubo.proj[1][1] *= -1; //glm was designed for opengl where y coords are inverted so multiply by -1
-    // void *data;
-    // vkMapMemory(device, uniformBuffersMemory[currentImage], 0, sizeof(ubo), 0, &data);
-    // memcpy(data, &ubo, sizeof(ubo));
-    // vkUnmapMemory(device, uniformBuffersMemory[currentImage]);
+    m->updateModelMat(currentImage, projection, view);
 }
 
 void Light::drawLight(VkCommandBuffer *commandBuffer, VkPipelineLayout pipelineLayout, int index, int instance){
     VkBuffer vertexBuffers[] = {m->vertexBuffer};
     VkDeviceSize offsets[] = {0};
+    VkDescriptorSet combindedDescriptorSets [1] = {(*m->getDescriptorSets())[index]};
     vkCmdBindVertexBuffers(*commandBuffer, 0, 1, vertexBuffers, offsets);
     vkCmdBindIndexBuffer(*commandBuffer, m->indexBuffer, 0, VK_INDEX_TYPE_UINT32);
     vkCmdBindDescriptorSets(*commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-        pipelineLayout, 0, 1, &(*(descriptorSets))[index], 0, nullptr);
+        pipelineLayout, 0, 1, combindedDescriptorSets, 0, nullptr);
     vkCmdDrawIndexed(*commandBuffer, static_cast<uint32_t>(m->vertexIndices.size()), 1, 0, 0, instance);
 }
 
 void Light::drawAllLights(VkCommandBuffer *commandBuffer, Pipeline *pipeline, int index){
     vkCmdBindPipeline(*commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *pipeline->getPipeline());
-    for (int i = 0; i < lightList.size(); i++){
-        lightList[i]->drawLight(commandBuffer, pipeline->getPipelineLayout(), index, i);
+    for (int i = 0; i < directionalLightList.size(); i++){
+        directionalLightList[i]->drawLight(commandBuffer, pipeline->getPipelineLayout(), index, i);
+    }
+    for (int i = 0; i < spotLightList.size(); i++){
+        spotLightList[i]->drawLight(commandBuffer, pipeline->getPipelineLayout(), index, i);
+    }
+    for (int i = 0; i < pointLightList.size(); i++){
+        pointLightList[i]->drawLight(commandBuffer, pipeline->getPipelineLayout(), index, i);
     }
 }
 
 
 void Light::recreateAllLights(uint32_t imageCount){
-    for(int i = 0; i < lightList.size(); i++){
-        lightList[i]->imageCount = imageCount;
+    Light::imageCount = imageCount;
+    for (int i = 0; i < directionalLightList.size(); i++){
+        directionalLightList[i]->m->recreateUBufferPoolSets(imageCount);
     }
-    if(lightList.size() > 0)
-        lightList[0]->recreateUBufferPoolSets();
+    for (int i = 0; i < spotLightList.size(); i++){
+        spotLightList[i]->m->recreateUBufferPoolSets(imageCount);
+    }
+    for (int i = 0; i < pointLightList.size(); i++){
+        pointLightList[i]->m->recreateUBufferPoolSets(imageCount);
+    }
+    //if(lightList.size() > 0)
+        recreateUBufferPoolSets();
 }
 
 void Light::recreateUBufferPoolSets(){
@@ -145,27 +284,46 @@ void Light::recreateUBufferPoolSets(){
 }
 
 void Light::recreateLightBuffer(){
-    Descriptor::createDescriptorBuffer(sizeof(LightInfo) * MAX_LIGHT_COUNT, &lightBuffers, &lightBuffersMemory, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, imageCount);
+    Descriptor::createDescriptorBuffer(16+ sizeof(DirectionalLightInfo) * MAX_LIGHT_COUNT, &directionalLightBuffers,
+        &directionalLightBuffersMemory, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, imageCount);
+    Descriptor::createDescriptorBuffer(16+ sizeof(SpotLightInfo) * MAX_LIGHT_COUNT, &spotLightBuffers,
+        &spotLightBuffersMemory, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, imageCount);
+    Descriptor::createDescriptorBuffer(16 + sizeof(PointLightInfo) * MAX_LIGHT_COUNT, &pointLightBuffers,
+        &pointLightBuffersMemory, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, imageCount);
 }
 
 VkDescriptorSetLayout * Light::getDescriptorSetLayout(){
     return descriptorSetLayout;
 }
 
-Light * Light::getLight(uint32_t i){
-    return lightList[i];
+std::vector<VkDescriptorSet> * Light::getDescriptorSets(){
+    return descriptorSets;
 }
 
-std::vector<VkBuffer> * Light::getLightBuffers(){
-    return &lightBuffers;
+Light * Light::getDirectionalLight(uint32_t i){
+    if(directionalLightList.size() > i)
+        return directionalLightList[i];
+    else
+        return nullptr;
 }
 
-std::vector<VkDeviceMemory> * Light::getLightBufferMemory(){
-    return &lightBuffersMemory;
+Light * Light::getPointLight(uint32_t i){
+    if(pointLightList.size() > i)
+        return pointLightList[i];
+    else
+        return nullptr;
 }
 
-VkDeviceSize Light::getLightBufferSize(){
-    return sizeof(LightInfo) * MAX_LIGHT_COUNT;
+std::vector<VkBuffer> * Light::getDirectionalLightBuffers(){
+    return &directionalLightBuffers;
+}
+
+std::vector<VkDeviceMemory> * Light::getDirectionalLightBufferMemory(){
+    return &directionalLightBuffersMemory;
+}
+
+VkDeviceSize Light::getDirectionalLightBufferSize(){
+    return 16+sizeof(DirectionalLightInfo) * MAX_LIGHT_COUNT;
 }
 
 void Light::destroyDescriptorSetLayout(){
@@ -174,37 +332,54 @@ void Light::destroyDescriptorSetLayout(){
 }
 
 void Light::destroyAllLights(){
-    for(int i = 0; i < lightList.size(); i++){
-        delete lightList[i];
+    for (int i = 0; i < directionalLightList.size(); i++){
+        delete directionalLightList[i];
     }
-    lightList.clear();
+    for (int i = 0; i < spotLightList.size(); i++){
+        delete spotLightList[i];
+    }
+    for (int i = 0; i < pointLightList.size(); i++){
+        delete pointLightList[i];
+    }
+    
+    directionalLightList.clear();
+    spotLightList.clear();
+    pointLightList.clear();
 }
 
-void Light::destroyLightBufferAndMemory(size_t imageCount){
+void Light::destroyLightBufferAndMemory(size_t imageCount, std::vector<VkBuffer> buffer, std::vector<VkDeviceMemory> memory){
     for(size_t j = 0; j < imageCount; j++){
-        vkDestroyBuffer(device, lightBuffers[j], nullptr);
-        vkFreeMemory(device, lightBuffersMemory[j], nullptr);
+        vkDestroyBuffer(device, buffer[j], nullptr);
+        vkFreeMemory(device, memory[j], nullptr);
     }
-    lightBuffers.clear();
-    lightBuffersMemory.clear();
+    buffer.clear();
+    memory.clear();
 }
 
 void Light::cleanupMemory(){
     std::cout<<"cleaning up model memory"<<std::endl;
+    for (int i = 0; i < directionalLightList.size(); i++){
+        directionalLightList[i]->m->cleanupMemory();
+    }
+    for (int i = 0; i < spotLightList.size(); i++){
+        spotLightList[i]->m->cleanupMemory();
+    }
+    for (int i = 0; i < pointLightList.size(); i++){
+        pointLightList[i]->m->cleanupMemory();
+    }
     vkDestroyDescriptorPool(device,*descriptorPool,nullptr);
     delete descriptorPool;
     delete descriptorSets;
     std::cout<<"finised cleaning up model memory"<<std::endl;
 }
 
-
-
 void Light::cleanupAllMemory(){
-    if(lightList[0])
-        destroyLightBufferAndMemory(lightList[0]->imageCount);
+    destroyLightBufferAndMemory(imageCount, directionalLightBuffers, directionalLightBuffersMemory);
+    destroyLightBufferAndMemory(imageCount, spotLightBuffers, spotLightBuffersMemory);
+    destroyLightBufferAndMemory(imageCount, pointLightBuffers, pointLightBuffersMemory);
     cleanupMemory();
-    // for(size_t j = 0; j<swapchain->swapchainImages.size(); j++){
-    //     vkDestroyBuffer(device, (*Model::getLightBuffers())[j], nullptr);
-    //     vkFreeMemory(device, (*Model::getLightBufferMemory())[j],nullptr);
-    // }
+}
+
+void Light::setImageCount(uint32_t imageCount){
+    Light::imageCount = imageCount;
 }

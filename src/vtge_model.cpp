@@ -7,9 +7,12 @@
 #include <cstring>
 #include <tiny_obj_loader.h>
 #include <unordered_map>
+#include <vtge_descriptor.hpp>
+#include <vtge_ubo.hpp>
 extern VkDevice device;
-//extern VkDescriptorSetLayout descriptorSetLayout;
-Model::Model(std::string modelPath, std::string diffuseMapPath, std::string specularMapPath, glm::vec4 color){
+VkDescriptorSetLayout * Model::descriptorSetLayout = nullptr;
+
+Model::Model(std::string modelPath, uint32_t imageCount, std::string diffuseMapPath, std::string specularMapPath, glm::vec4 color){
     this->modelPath = modelPath;
     this->diffuseMapPath = diffuseMapPath;
     this->specularMapPath = specularMapPath;
@@ -17,19 +20,25 @@ Model::Model(std::string modelPath, std::string diffuseMapPath, std::string spec
         this->diffuseMap = new Texture(diffuseMapPath);
     else if (color != glm::vec4(-1,-1,-1,-1))
         this->diffuseMap = new Texture(64, 64, color);
-    else
-        this->diffuseMap = nullptr;
+    else if (color == glm::vec4(-1,-1,-1,-1) && diffuseMapPath == ""){
+        this->diffuseMap = new Texture(64, 64, glm::vec4(200, 200, 200, 255));
+        std::cout<<modelPath<<std::endl;
+    }
     if(specularMapPath != "")
         this->specularMap = new Texture(specularMapPath);
     else
-        this->specularMap = new Texture(64, 64, glm::vec4(0,0,0,255));
+        this->specularMap = new Texture(64, 64, glm::vec4(125,125,125,255));
     this->modelMat = glm::mat4(1.0f);
     this->velocity = glm::vec3(0.0f);
     this->rotation = glm::vec3(0.0f);
+    this->imageCount = imageCount;
+    
     loadModel();
     createVertexBuffer();
     createIndexBuffer();
-
+    initDescriptorSets(imageCount);
+    Material mtrl = {32.0f};
+    updateMaterial(mtrl);
 }
 
 
@@ -42,6 +51,80 @@ Model::~Model(){
     vkFreeMemory(device, indexBufferMemory, nullptr);
     vkDestroyBuffer(device, vertexBuffer, nullptr);
     vkFreeMemory(device, vertexBufferMemory, nullptr);
+}
+
+void Model::initDescriptorSets(uint32_t imageCount){
+    if(!descriptorSetLayout){
+        setupDescriptorSetLayout();
+    }
+    createDescriptorBuffers();
+    createDescriptorPool();
+    createDescriptorSets();
+    
+}
+
+void Model::setupDescriptorSetLayout(){
+
+    auto uboLayoutBinding = Descriptor::createDescriptorSetLayoutBinding(
+        0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr);
+    auto samplerLayoutBinding = Descriptor::createDescriptorSetLayoutBinding(
+        1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
+    auto specMapLayoutBinding = Descriptor::createDescriptorSetLayoutBinding(
+        2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
+    auto materialLayoutBinding = Descriptor::createDescriptorSetLayoutBinding(
+        3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
+    std::vector<VkDescriptorSetLayoutBinding> bindings = {uboLayoutBinding, samplerLayoutBinding, materialLayoutBinding, specMapLayoutBinding};
+
+    descriptorSetLayout = Descriptor::createDescriptorSetLayout(&bindings);
+}
+
+void Model::createDescriptorBuffers(){
+    Descriptor::createDescriptorBuffer(sizeof(UniformBufferObject), &uniformBuffers, &uniformBuffersMemory, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, imageCount);
+    Descriptor::createDescriptorBuffer(sizeof(Material), &material, &materialMemory, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, imageCount);
+}
+
+void Model::createDescriptorPool(){
+    std::vector<VkDescriptorPoolSize> poolSizes = {
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2*imageCount},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2 * imageCount}
+    };
+    descriptorPool = Descriptor::createDescriptorPool(imageCount, poolSizes);
+}
+
+void Model::createDescriptorSets(){
+    descriptorSets = Descriptor::allocateDescriptorSets(imageCount, *descriptorSetLayout, *descriptorPool);
+    std::vector<VtgeBufferInfo> bufferInfos;
+    std::vector<VtgeImageInfo> imageInfos;
+    VtgeBufferInfo uniformBuffer {};
+    uniformBuffer.buffer = uniformBuffers.data();
+    uniformBuffer.offset = 0;
+    uniformBuffer.range = sizeof(UniformBufferObject);
+    uniformBuffer.binding = 0;
+    uniformBuffer.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    bufferInfos.push_back(uniformBuffer);
+    VtgeBufferInfo materialBuffer {};
+    materialBuffer.buffer = material.data();
+    materialBuffer.offset = 0;
+    materialBuffer.range = sizeof(Material);
+    materialBuffer.binding = 3;
+    materialBuffer.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    //bufferInfos.push_back(directionalLightBuffer);
+    bufferInfos.push_back(materialBuffer);
+    VtgeImageInfo imageBuffer{};
+    imageBuffer.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    imageBuffer.view = diffuseMap->textureImageView;
+    imageBuffer.sampler = diffuseMap->textureSampler;
+    imageBuffer.binding = 1;
+    imageBuffer.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    VtgeImageInfo specMapBuffer{};
+    specMapBuffer.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    specMapBuffer.view = specularMap->textureImageView;
+    specMapBuffer.sampler = specularMap->textureSampler;
+    specMapBuffer.binding = 2;
+    specMapBuffer.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    imageInfos.push_back(imageBuffer);
+    imageInfos.push_back(specMapBuffer);
+    Descriptor::populateDescriptorBuffer(descriptorSets,imageCount, bufferInfos, imageInfos);
 }
 
 void Model::createVertexBuffer(){
@@ -123,12 +206,71 @@ void Model::rotateModel(glm::vec3 rotation){
     modelMat = glm::rotate(modelMat, glm::radians(rotation.z), glm::vec3(0,0,1));
 }
 
-void Model::updateModelMat(){
+void Model::updateModelMat(uint32_t currentImage, glm::mat4 projection, glm::mat4 view){
     rotateModel(rotation);
     moveModel(velocity);
+    UniformBufferObject ubo{};
+    ubo.modelView = view * getModelMat();
+    ubo.proj = projection;
+    ubo.view = view;
+    ubo.normMatrix = transpose(inverse(ubo.modelView));
+    void *data;
+    vkMapMemory(device, uniformBuffersMemory[currentImage], 0, sizeof(ubo), 0, &data);
+    memcpy(data, &ubo, sizeof(ubo));
+    vkUnmapMemory(device, uniformBuffersMemory[currentImage]);
 }
 
-glm::vec3 Model::getModelPos(){
-    return glm::vec3(modelMat[3][0],modelMat[3][1], modelMat[3][2]);
+glm::vec4 Model::getModelPos(){
+    return glm::vec4(modelMat[3][0],modelMat[3][1], modelMat[3][2], 1);
 }
 
+VkDescriptorSetLayout * Model::getDescriptorSetLayout(){
+    return descriptorSetLayout;
+}
+
+std::vector<VkDescriptorSet> * Model::getDescriptorSets(){
+    return descriptorSets;
+}
+
+void Model::cleanupMemory(){
+    for(size_t j = 0; j < imageCount; j++){
+        vkDestroyBuffer(device, uniformBuffers[j], nullptr);
+        vkFreeMemory(device, uniformBuffersMemory[j], nullptr);
+        vkDestroyBuffer(device, material[j], nullptr);
+        vkFreeMemory(device, materialMemory[j], nullptr);
+    }
+    vkDestroyDescriptorPool(device,*descriptorPool,nullptr);
+    delete descriptorPool;
+    delete descriptorSets;
+}
+
+void Model::destroyDescriptorSetLayout(){
+    vkDestroyDescriptorSetLayout(device, *descriptorSetLayout, nullptr);
+    delete(descriptorSetLayout);
+}
+
+void Model::recreateUBufferPoolSets(uint32_t imageCount){
+    this->imageCount = imageCount;
+    createDescriptorBuffers();
+    createDescriptorPool();
+    createDescriptorSets();
+    Material mtrl = {32.0f};
+    updateMaterial(mtrl);
+}
+
+// void Model::recreateAllModels(uint32_t imageCount){
+//     std::cout<<objectList.size()<<std::endl;
+//     for(int i = 0; i < objectList.size(); i++){
+//         objectList[i]->recreateUBufferPoolSets(imageCount);
+//     }
+// }
+
+
+void Model::updateMaterial(Material mat){
+    for(int currentImage = 0; currentImage < imageCount; currentImage++){
+        void * data;
+        vkMapMemory(device, materialMemory[currentImage], 0, sizeof(mat), 0, &data);
+        memcpy(data, &mat, sizeof(mat));
+        vkUnmapMemory(device, materialMemory[currentImage]);
+    }
+}

@@ -8,61 +8,101 @@
 #include "vtge_ubo.hpp"
 class Model;
 class Pipeline;
-struct LightInfo{
-    alignas(16) glm::vec3 lightcolor;
-    alignas(16) glm::vec3 lightpos;
-    alignas(16) glm::vec3 diffuse;
-    alignas(16) glm::vec3 specular;
-    alignas(16) glm::vec3 ambient;
-    alignas(16) UniformBufferObject ubo;
+const static int MAX_LIGHT_COUNT = 10000;
+struct DirectionalLightInfo{
+    // alignas(4) int numLights;
+    alignas(16) glm::vec4 diffuse;
+    alignas(16) glm::vec4 specular;
+    alignas(16) glm::vec4 ambient;
+    alignas(16) glm::vec4 direction;
 };
 
+struct SpotLightInfo{
+    // alignas(4) int numLights;
+    alignas(4) float constant;
+    alignas(4) float linear;
+    alignas(4) float quadratic;
+    alignas(4) float cutOff;
+    alignas(4) float outerCutOff;
+    alignas(16) glm::vec4 direction;
+    alignas(16) glm::vec4 lightpos;
+    alignas(16) glm::vec4 diffuse;
+    alignas(16) glm::vec4 specular;
+    alignas(16) glm::vec4 ambient;
+};
 
+struct PointLightInfo{
+    // alignas(4) int numLights;
+    alignas(4) float constant;
+    alignas(4) float linear;
+    alignas(4) float quadratic;
+    alignas(16) glm::vec4 lightpos;
+    alignas(16) glm::vec4 diffuse;
+    alignas(16) glm::vec4 specular;
+    alignas(16) glm::vec4 ambient;
+};
 
 class Light{
     public:
-        Light(std::string modelPath, glm::vec3 lightColor, glm::vec3 lightPos, uint32_t imageCount,
-            glm::vec3 diffuse, glm::vec3 ambient, glm::vec3 specular);
+        Light(std::string modelPath, glm::vec4 lightPos, uint32_t imageCount,
+            glm::vec4 diffuse, glm::vec4 ambient, glm::vec4 specular,
+            float constant, float linear, float quadratic);
+        Light(std::string modelPath, glm::vec4 lightPos, glm::vec4 direction, uint32_t imageCount,
+            glm::vec4 diffuse, glm::vec4 ambient, glm::vec4 specular);
+        Light(std::string modelPath, glm::vec4 lightPos, glm::vec4 direction, uint32_t imageCount,
+            glm::vec4 diffuse, glm::vec4 ambient, glm::vec4 specular,
+            float constant, float linear, float quadratic, float cutOff, float outerCutOff);
         ~Light();
+        static void initLights();
         static void destroyAllLights();
+        static void destroyDescriptorSetLayout();
+        static void destroyLightBufferAndMemory(size_t imageCount, std::vector<VkBuffer> buffer, std::vector<VkDeviceMemory> memory);
         static void recreateAllLights(uint32_t imageCount);
+        static void recreateLightBuffer();
         static void cleanupMemory();
         static void cleanupAllMemory();
         void updateUniformBuffer(uint32_t currentImage);
         void updateLight(uint32_t currentImage, glm::mat4 projection, glm::mat4 view);
         static void updateAllLights(uint32_t currentImage, glm::mat4 projection, glm::mat4 view);
-        Model *getModel(){return m;}
-        void drawLight(VkCommandBuffer *commandBuffer, VkPipelineLayout pipelineLayout, int index, int instance);
         static void drawAllLights(VkCommandBuffer *commandBuffer, Pipeline *pipeline, int index);
-        static void destroyDescriptorSetLayout();
-        void recreateLightBuffer();
-        static std::vector<VkBuffer> * getLightBuffers();
-        static std::vector<VkDeviceMemory> * getLightBufferMemory();
+        void drawLight(VkCommandBuffer *commandBuffer, VkPipelineLayout pipelineLayout, int index, int instance);
+        Model *getModel(){return m;}
+        static std::vector<VkBuffer> * getDirectionalLightBuffers();
+        static std::vector<VkDeviceMemory> * getDirectionalLightBufferMemory();
         static VkDescriptorSetLayout * getDescriptorSetLayout();
-        static VkDeviceSize getLightBufferSize();
-        static void destroyLightBufferAndMemory(size_t imageCount);
-        static Light * getLight(uint32_t i);
+        static std::vector<VkDescriptorSet> *getDescriptorSets(); 
+        static VkDeviceSize getDirectionalLightBufferSize();
+        static Light * getDirectionalLight(uint32_t i);
+        static Light * getPointLight(uint32_t i);
+        static void setImageCount(uint32_t);
     private:
         Model *m;
-        uint32_t imageCount;
-        glm::vec3 lightColor, lightPos;
-        glm::vec3 diffuse, ambient, specular;
+        static uint32_t imageCount;
+        float constant, linear, quadratic, cutOff, outerCutOff;
+        glm::vec4 lightPos, direction;
+        glm::vec4 diffuse, ambient, specular;
         UniformBufferObject ubo;
         //std::vector<VkBuffer> uniformBuffers;
         //std::vector<VkDeviceMemory> uniformBuffersMemory;
-        void createDescriptorPool();
-        void createDescriptorSets();
+        static void createDescriptorPool();
+        static void createDescriptorSets();
         //void createDescriptorBuffers();
-        void recreateUBufferPoolSets();
-        void setupDescriptorSetLayout();
+        static void recreateUBufferPoolSets();
+        static void setupDescriptorSetLayout();
         void updateUniformBuffer(uint32_t currentImage, glm::mat4 projection, glm::mat4 view);
-        static void updateLightBuffer(uint32_t currentImage, glm::mat4 projection, glm::mat4 view);
-
-
+        static void updateLightBuffers(uint32_t currentImage, glm::mat4 projection, glm::mat4 view);
+        //template <typename LightInfoStruct>
+        // static void updateLightBuffer(uint32_t currentImage, glm::mat4 projection, glm::mat4 view,
+        //     std::vector<Light *> lightList, std::vector<VkDeviceMemory> lightBuffersMemory);
+        static void updateDirectionalLightBuffer(uint32_t currentImage, glm::mat4 projection, glm::mat4 view,
+            std::vector<Light *> lightList, std::vector<VkDeviceMemory> lightBuffersMemory);
+        static void updateSpotLightBuffer(uint32_t currentImage, glm::mat4 projection, glm::mat4 view,
+            std::vector<Light *> lightList, std::vector<VkDeviceMemory> lightBuffersMemory);
+        static void updatePointLightBuffer(uint32_t currentImage, glm::mat4 projection, glm::mat4 view,
+            std::vector<Light *> lightList, std::vector<VkDeviceMemory> lightBuffersMemory); 
         static VkDescriptorSetLayout *descriptorSetLayout;
-        const static int MAX_LIGHT_COUNT = 10000;
-        static std::vector<VkBuffer>           lightBuffers;
-        static std::vector<VkDeviceMemory>     lightBuffersMemory;
+        static std::vector<VkBuffer>           directionalLightBuffers, pointLightBuffers, spotLightBuffers;
+        static std::vector<VkDeviceMemory>     directionalLightBuffersMemory, pointLightBuffersMemory, spotLightBuffersMemory;
         static VkDescriptorPool *descriptorPool;
         static std::vector<VkDescriptorSet>    *descriptorSets;
 };

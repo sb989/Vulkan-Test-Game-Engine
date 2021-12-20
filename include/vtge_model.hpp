@@ -18,89 +18,40 @@ namespace std {
         }
     };
 }
+
+struct Material{
+    alignas(4) float shininess;
+};
+
 class Texture;
-//class Swapchain;
-
-
-//static VkDescriptorSetLayout *descriptorSetLayout;
 class Model{
     public:
-        /**
-         * @brief the constructor for a model object
-         * @param modelPath the path to the model
-         * @param texturePath the path to the models texture
-         */
-        Model(std::string modelPath, std::string diffuseMapPath = "", std::string specularMapPath = "", glm::vec4 color = {-1,-1,-1,-1});
-        
-        /**
-         * @brief the destructor for a model object
-         */
+       
+        Model(std::string modelPath, uint32_t imageCount, std::string diffuseMapPath = "", std::string specularMapPath = "", glm::vec4 color = {-1,-1,-1,-1});
         ~Model();
-
-        /**
-         * @brief recreates the uniform buffer, descriptor pool and descriptor sets for a model
-         * @param imageCount number of images in the swapchain
-         */
         void recreateUBufferPoolSets(uint32_t imageCount);
-
-        /**
-         * @brief returns the model matrix
-         * @return returns a glm::mat4 that contains the model matrix
-         */
         glm::mat4 getModelMat(){return modelMat;}
+        glm::vec4 getModelPos();
 
-        /**
-         * @brief returns the models position
-         * @return returns a glm::vec3 decribing the models position
-         */
-        glm::vec3 getModelPos();
+        static VkDescriptorSetLayout * getDescriptorSetLayout();
+        std::vector<VkDescriptorSet> * getDescriptorSets();
 
-        /**
-         * @brief updates the model matrix using the models velocity and rate of rotation
-         */
-        void updateModelMat();
 
-        /**
-         * @brief sets the models velocity
-         * @param vel the new velocity of the model
-         */
+     
+        void updateModelMat(uint32_t currentImage, glm::mat4 projection, glm::mat4 view);
+
         void setVelocity(glm::vec3 vel){velocity = vel;}
 
-        /**
-         * @brief sets the models rotation rate
-         * @param rot the new rate of rotation of the model
-         */
         void setRotation(glm::vec3 rot){rotation = rot;}
 
-        /**
-         * @brief moves the model a distance in a direction
-         * @param changeInPos a vec3 denoting the distance and direction
-         */
         void moveModel(glm::vec3 changeInPos);
 
-        /**
-         * @brief scales the model by a factor
-         * @param factor a vec3 denoting the factor to scale by
-         */
         void scaleModel(glm::vec3 factor);
-
-        /**
-         * @brief rotates the model by the angle determined by the vector
-         * @param a vec3 denoting the angle to rotate by
-         */
         void rotateModel(glm::vec3 rotation);
-
-        // void cleanupMemory();
-        // void updateUniformBuffer(uint32_t currentImage, glm::mat4 projection, glm::mat4 view);
-        // void recreateLightBuffer();
-        // static void destroyDescriptorSetLayout();
-        // static VkDescriptorSetLayout * getDescriptorSetLayout();
-        // static std::vector<VkBuffer> * getLightBuffers();
-        // static std::vector<VkDeviceMemory> *getLightBufferMemory();
-        // static void destroyLightBufferAndMemory(size_t imageCount);
-        //std::vector<VkBuffer>           uniformBuffers;
-        //std::vector<VkDeviceMemory>     uniformBuffersMemory;
-
+        void cleanupMemory();
+        static void destroyDescriptorSetLayout();
+        void recreateAllModels(uint32_t imageCount);        
+        void updateMaterial(Material mat);
         std::vector<Vertex>             vertices;
         std::vector<uint32_t>           vertexIndices;
         //std::vector<VkDescriptorSet>    *descriptorSets;
@@ -109,47 +60,36 @@ class Model{
         //VkDescriptorPool                *descriptorPool;
         Texture                         *diffuseMap, *specularMap;
     private:
+        uint32_t imageCount;
+        static VkDescriptorSetLayout *descriptorSetLayout;
         std::string                     modelPath, diffuseMapPath, specularMapPath;
         glm::mat4                       modelMat;
         glm::vec3                       velocity;
         glm::vec3                       rotation;
-
-        /**
-         * @brief creates a uniform buffer for each swapchain image
-         */
-        void createUniformBuffers();
-
-        /**
-         * @brief creates a descriptor pool 
-         */
+        std::vector<VkDeviceMemory> uniformBuffersMemory, materialMemory;
+        std::vector<VkBuffer> uniformBuffers, material;
+        VkDescriptorPool *descriptorPool;
+        std::vector<VkDescriptorSet>    *descriptorSets;
+      
+        void createDescriptorBuffers();
+        
         void createDescriptorPool();
 
-        /**
-         * @brief allocates a descriptor set for each swapchain image from the descriptor pool
-         */
         void createDescriptorSets();
 
-        /**
-         * @brief creates the vertex buffer from the info in the file
-         */
         void createVertexBuffer();
 
-        /**
-         * @brief creates the index buffer from the info in the file
-         */
         void createIndexBuffer();
 
         void createBufferAndCopy(VkDeviceSize bufferSize, VkBuffer *buffer, VkDeviceMemory *deviceMemory, VkBufferUsageFlags flags,void *pointer);
 
-        /**
-         * @brief loads the model info from the file
-         */
         void loadModel();
 
         void createDescriptorSetLayout();
 
         void setupDescriptorSetLayout();
         
+        void initDescriptorSets(uint32_t imageCount);
 };
 
 #endif

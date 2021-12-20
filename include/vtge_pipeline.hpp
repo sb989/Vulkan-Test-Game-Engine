@@ -9,7 +9,7 @@ class Swapchain;
 class Pipeline{
     public:
         Pipeline(std::string vertPath, std::string fragPath, Swapchain *swapchain,
-            VkRenderPass *renderPass, VkDescriptorSetLayout *descriptorSetLayout);
+            VkRenderPass *renderPass, VkDescriptorSetLayout *descriptorSetLayout, uint32_t setLayoutCount);
         ~Pipeline();
         VkPipelineLayout getPipelineLayout();
         VkPipeline * getPipeline();
@@ -23,6 +23,7 @@ class Pipeline{
         VkRenderPass *renderPass;
         std::array<VkPipelineShaderStageCreateInfo,2> shaderStages;
         std::string vertFilePath, fragFilePath;
+        uint32_t setLayoutCount;
 
         void createPipeline();
         void createPipelineLayout();

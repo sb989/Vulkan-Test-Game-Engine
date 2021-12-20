@@ -6,31 +6,20 @@ layout(location = 2) in vec2 inTexCoord;
 layout(location = 3) in vec3 inNormal;
 
 layout(location = 0) out vec3 currentColor;
-//layout(location = 1) out vec3 currentPos;
-struct UniformBufferObject{
+layout(location = 1) out vec2 fragTexCoord;
+layout(set = 0, binding = 0) uniform UniformBufferObject{
     mat4 normMatrix;
     mat4 modelView;
     mat4 view;
     mat4 proj;
-};
-
-struct LightInfo{
-    vec3 lightcolor;
-    vec3 lightpos;
-    vec3 diffuse;
-    vec3 specular;
-    vec3 ambient;
-    UniformBufferObject ubo;
-};
-
-layout(std140, binding = 0) readonly buffer LightBuffer{
-    LightInfo lights[];
-} lightBuffer;
+} ubo;
 
 
 void main(){
-    UniformBufferObject currentUbo = lightBuffer.lights[gl_BaseInstance].ubo;
-    currentColor = lightBuffer.lights[gl_BaseInstance].lightcolor;
+    //UniformBufferObject currentUbo = ubo;//lightBuffer.lights[gl_BaseInstance].ubo;
+    //currentColor = lightBuffer.lights[gl_BaseInstance].lightcolor;
     //currentPos = lightBuffer.lights[gl_BaseInstance].lightpos;
-    gl_Position = currentUbo.proj * currentUbo.modelView * vec4(inPosition, 1.0);
+    currentColor = inColor;
+    fragTexCoord = inTexCoord;
+    gl_Position = ubo.proj * ubo.modelView * vec4(inPosition, 1.0);
 }

@@ -7,12 +7,13 @@ extern VkDevice device;
 
 
 Pipeline::Pipeline(std::string vertPath, std::string fragPath, Swapchain *swapchain,
-    VkRenderPass *renderPass, VkDescriptorSetLayout *descriptorSetLayout){
+    VkRenderPass *renderPass, VkDescriptorSetLayout *descriptorSetLayout, uint32_t setLayoutCount){
         this->vertFilePath = vertPath;
         this->fragFilePath = fragPath;
         this->swapchain = swapchain;
         this->renderPass = renderPass;
         this->descriptorSetLayout = descriptorSetLayout;
+        this->setLayoutCount = setLayoutCount;
         createPipeline();
 }
 
@@ -133,7 +134,7 @@ void Pipeline::createPipelineLayout(){
     //pushConstantRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;    
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = 1; // Optional
+    pipelineLayoutInfo.setLayoutCount = setLayoutCount; // Optional
     pipelineLayoutInfo.pSetLayouts = descriptorSetLayout; // Optional
     pipelineLayoutInfo.pushConstantRangeCount = 0; // Optional
     pipelineLayoutInfo.pPushConstantRanges = nullptr;//&pushConstantRange; // Optional

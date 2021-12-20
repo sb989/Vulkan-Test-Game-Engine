@@ -53,8 +53,8 @@ Graphics::Graphics(uint32_t width, uint32_t height, std::string windowTitle){
 Graphics::~Graphics(){
     std::cout<<"cleanup swapchain"<<std::endl;
     cleanupSwapchain();
-    Object::destroyDescriptorSetLayout();
     Light::destroyDescriptorSetLayout();
+    Model::destroyDescriptorSetLayout();
     std::cout<<"delete model list"<<std::endl;
     Object::destroyAllObjects();
     Light::destroyAllLights();
@@ -106,18 +106,28 @@ void Graphics::setUpGraphics(){
     framebuffer = new Framebuffer(swapchain, &renderPass);
     std::cout<<"finished creating framebuffer creating model now!"<<std::endl;
     std::cout<<"creating objects"<<std::endl;
-    createLight("../models/cube.obj", glm::vec3(1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1,0,1), glm::vec3(15, 5, 1),
-        glm::vec3(.5), glm::vec3(.2), glm::vec3(1));
-    createLight("../models/cube.obj", glm::vec3(1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1,0,0), glm::vec3(15, 5, 1),
-        glm::vec3(.5), glm::vec3(.2), glm::vec3(1));
-
+    Light::setImageCount(swapchain->swapchainImages.size());
+    Light::initLights();
+    createDirectionalLight("../models/cube.obj", glm::vec3(1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec4(0, 0, -1, 1), glm::vec4(0, 0, 1, 1),
+        glm::vec4(1), glm::vec4(.0,.0,.0,1), glm::vec4(1));
+    // createDirectionalLight("../models/cube.obj", glm::vec3(1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0, 0, -1), glm::vec3(1,0,0), glm::vec3(15, 5, 1),
+    //     glm::vec3(.5), glm::vec3(.2), glm::vec3(1));
+    createPointLight("../models/cube.obj", glm::vec3(1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec4(15, 5, 1, 1),
+       glm::vec4(1,0,0,1), glm::vec4(.2,.2,.2,1), glm::vec4(1), 1.0f, 0.14f, 0.07f);
+    createSpotLight("../models/cube.obj", glm::vec3(1.0f), glm::vec3(0), glm::vec4(0,1,0,1), glm::vec4(0,-1,0,1), 
+        glm::vec4(0,0,.1,1), glm::vec4(0,0,.1,1), glm::vec4(1), 1, .14f, .07f, 12.5, 17.5);
+    // createPointLight("../models/cube.obj", glm::vec3(1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1,0,1), glm::vec3(15, 5, 1),
+    //         glm::vec3(.5), glm::vec3(.2), glm::vec3(1));
     createObject("../models/cube.obj","../textures/crate_diffuse.png", glm::vec3(2, 14, -1), glm::vec3(1.0f), glm::vec3(0.0f, 0.0f, 0.0f), "../textures/crate_specular.png");
-    createObject("../models/cube.obj", glm::vec4(255, 0, 0, 255), glm::vec3(2, 10, -1), glm::vec3(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+    createObject("../models/cube.obj", glm::vec4(0, 200, 125, 255), glm::vec3(2, 10, -1), glm::vec3(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
     createObject(BANANA_MODEL_PATH, BANANA_TEXTURE_PATH, glm::vec3(2, -5, -1), glm::vec3(0.05f), glm::vec3(0.0f, 90.0f, 0.0f));
     createObject(VIKING_MODEL_PATH,VIKING_TEXTURE_PATH, glm::vec3(-4, 5, 1), glm::vec3(1.0f), glm::vec3(0.0f));
     createObject(BANANA_MODEL_PATH, glm::vec3(2, 5, -1), glm::vec3(0.05f), glm::vec3(0.0f, 0.0f, 0.0f));
-    graphicsPipeline = new Pipeline("../shaders/obj_vert.spv", "../shaders/obj_frag.spv", swapchain, &renderPass, Object::getDescriptorSetLayout());
-    lightPipeline = new Pipeline("../shaders/light_vert.spv", "../shaders/light_frag.spv", swapchain, &renderPass, Light::getDescriptorSetLayout());
+
+    VkDescriptorSetLayout lightPipelineLayouts [1] = {*Model::getDescriptorSetLayout()};
+    VkDescriptorSetLayout graphicPipelineLayouts [2] = {*Model::getDescriptorSetLayout(), *Light::getDescriptorSetLayout()};
+    graphicsPipeline = new Pipeline("../shaders/obj_vert.spv", "../shaders/obj_frag.spv", swapchain, &renderPass, graphicPipelineLayouts, 2);
+    lightPipeline = new Pipeline("../shaders/light_vert.spv", "../shaders/light_frag.spv", swapchain, &renderPass, lightPipelineLayouts, 1);
     std::cout<<"finisehd creating objects"<<std::endl;
     std::cout<<"finisehd creating models!"<<std::endl;
     
@@ -476,8 +486,11 @@ void Graphics::drawFrame(){
     float x = cos(glfwGetTime()/4.0f)/4.0f;
     float y = sin(glfwGetTime()/4.0f)/4.0f;
     glm::vec3 displacement(x,y,0.0f);
-    Model * m = Light::getLight(0)->getModel();
-    m->moveModel(displacement);
+    Light * l = Light::getPointLight(0);
+    if(l){
+        Model * m = l->getModel();
+        m->moveModel(displacement);
+    }
     if(glfwGetInputMode(window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED)
         handleMouse(window);
     updateCamera();
@@ -541,8 +554,8 @@ void Graphics::handleMouse(GLFWwindow* window){
     double ydiff = y_pos - cursorYPos;
     oldCamYaw = camYaw;
     oldCamPitch = camPitch;
-    camYaw += xdiff;
-    camPitch += ydiff;
+    camYaw += xdiff/2;
+    camPitch += ydiff/2;
     cursorXPos = x_pos;
     cursorYPos = y_pos;
     
@@ -630,14 +643,34 @@ void Graphics::setObjectTransform(Object *obj, glm::vec3 translate, glm::vec3 sc
     obj->getModel()->setRotation(rotate/40.0f);
 }
 
-void Graphics::createLight(std::string modelPath, glm::vec3 scale, glm::vec3 rotate, glm::vec3 lightColor, glm::vec3 lightPos,
-    glm::vec3 diffuse, glm::vec3 ambient, glm::vec3 specular){
-    Light *l = new Light(modelPath, lightColor, lightPos, swapchain->swapchainImages.size(), diffuse, ambient, specular);
+void Graphics::createPointLight(std::string modelPath, glm::vec3 scale, glm::vec3 rotate, glm::vec4 lightPos,
+    glm::vec4 diffuse, glm::vec4 ambient, glm::vec4 specular, float constant, float linear, float quadratic){
+    Light *l = new Light(modelPath, lightPos, swapchain->swapchainImages.size(), diffuse, ambient,
+        specular, constant, linear, quadratic);
     l->getModel()->rotateModel(rotate);
     l->getModel()->scaleModel(scale);
     l->getModel()->setRotation(rotate/40.0f);
     //lightList.push_back(m);
 }
+
+void Graphics::createDirectionalLight(std::string modelPath, glm::vec3 scale, glm::vec3 rotate, glm::vec4 direction, glm::vec4 lightPos,
+    glm::vec4 diffuse, glm::vec4 ambient, glm::vec4 specular){
+    Light *l = new Light(modelPath, lightPos, direction, swapchain->swapchainImages.size(), diffuse, ambient, specular);
+    l->getModel()->rotateModel(rotate);
+    l->getModel()->scaleModel(scale);
+    l->getModel()->setRotation(rotate/40.0f);
+    //lightList.push_back(m);
+}
+
+void Graphics::createSpotLight(std::string modelPath, glm::vec3 scale, glm::vec3 rotate, glm::vec4 direction, glm::vec4 lightPos,
+    glm::vec4 diffuse, glm::vec4 ambient, glm::vec4 specular, float constant, float linear, float quadratic,
+    float cutOff, float outerCutOff){
+    Light *l = new Light(modelPath, lightPos, direction, swapchain->swapchainImages.size(), diffuse, ambient,
+        specular, constant, linear, quadratic, cutOff, outerCutOff);
+    l->getModel()->rotateModel(rotate);
+    l->getModel()->scaleModel(scale);
+    l->getModel()->setRotation(rotate/40.0f);
+    }
 
 VkCommandBuffer Graphics::beginSingleTimeCommands(VkCommandPool pool){
     VkCommandBufferAllocateInfo allocInfo{};
@@ -692,8 +725,10 @@ void Graphics::recreateSwapchain(){
     swapchain = new Swapchain(&surface, window, swapchainSupport);
 
     createRenderPass();
-    graphicsPipeline = new Pipeline("../shaders/obj_vert.spv", "../shaders/obj_frag.spv", swapchain, &renderPass, Object::getDescriptorSetLayout());
-    lightPipeline = new Pipeline("../shaders/light_vert.spv", "../shaders/light_frag.spv", swapchain, &renderPass, Light::getDescriptorSetLayout());
+    VkDescriptorSetLayout graphicPipelineLayouts [2] = {*Model::getDescriptorSetLayout(), *Light::getDescriptorSetLayout()};
+    VkDescriptorSetLayout lightPipelineLayouts [1] = {*Model::getDescriptorSetLayout()};
+    graphicsPipeline = new Pipeline("../shaders/obj_vert.spv", "../shaders/obj_frag.spv", swapchain, &renderPass, graphicPipelineLayouts, 2);
+    lightPipeline = new Pipeline("../shaders/light_vert.spv", "../shaders/light_frag.spv", swapchain, &renderPass, lightPipelineLayouts, 1);
     graphicsCommandBuffer = beginSingleTimeCommands(graphicsCommandPool);
     framebuffer = new Framebuffer(swapchain, &renderPass);
     Light::recreateAllLights(swapchain->swapchainImages.size());

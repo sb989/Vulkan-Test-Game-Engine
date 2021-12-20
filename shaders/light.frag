@@ -1,13 +1,12 @@
 #version 460
 
 layout(location = 0) out vec4 outColor;
-
+layout(location = 1) in vec2 fragTexCoord;
 layout(location = 0) in vec3 currentColor;
-// layout(binding = 2) uniform LightInfo{
-//     vec3 lightcolor;
-//     vec3 lightpos;
-// }lightInfo;
+
+layout(set = 0, binding = 1) uniform sampler2D texSampler;
 
 void main(){
-    outColor = vec4(currentColor, 1);
+    outColor = texture(texSampler, fragTexCoord);
+    //outColor = vec4(currentColor, 1);
 }
