@@ -4,7 +4,8 @@
 #include <GLFW/glfw3.h>
 #include <iostream>
 
-namespace debug{
+namespace debug
+{
     /**
      * @brief setups the debug messenger
      * @param instance the vulkan instance currently being used
@@ -20,8 +21,8 @@ namespace debug{
      * @param pDebugMessenger a pointer to the debug messenger beign created
      * @return a VkResult object; VK_SUCCESS or something else
      */
-    VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
-        const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger);
+    VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo,
+                                          const VkAllocationCallbacks *pAllocator, VkDebugUtilsMessengerEXT *pDebugMessenger);
 
     /**
      * @brief destroys a debug messenger
@@ -29,13 +30,13 @@ namespace debug{
      * @param debugMessenger a pointer to the debug messenger that needs to be destroyed
      * @param pAllocator a pointer to the debug messengers allocator callback
      */
-    void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT *debugMessenger, const VkAllocationCallbacks* pAllocator);
-    
+    void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT *debugMessenger, const VkAllocationCallbacks *pAllocator);
+
     /**
      * @brief populates the debug messengers create info struct
      * @param createInfo a reference to the create info struct for the debug messenger
      */
-    void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
+    void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT &createInfo);
 
     /**
      * @brief a callback function for debugging
@@ -45,10 +46,10 @@ namespace debug{
      * @param pUserData a pointer to any user data that needs to be returned
      */
     static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-        VkDebugUtilsMessageTypeFlagsEXT messageType,
-        const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
-        void* pUserData);
+                                                        VkDebugUtilsMessageTypeFlagsEXT messageType,
+                                                        const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
+                                                        void *pUserData);
 
-}  
+}
 
 #endif

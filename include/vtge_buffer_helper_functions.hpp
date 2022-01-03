@@ -1,11 +1,12 @@
 #ifndef __VTGE_BUFFER_HELPER_FUNCTIONS_HPP_
 #define __VTGE_BUFFER_HELPER_FUNCTIONS_HPP__
 #define GLFW_INCLUDE_VULKAN
-#include<GLFW/glfw3.h>
+#include <GLFW/glfw3.h>
 #include <vector>
 #include "vtge_queuefamilyindices.hpp"
 
-namespace buffer{
+namespace buffer
+{
     /**
      * @brief creates a buffer and allocates memory for it
      * @param size the size of the bufffer
@@ -15,7 +16,7 @@ namespace buffer{
      * @param bufferMemory a reference to the VkDeviceMemory being allocated for the buffer
      */
     void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties,
-        VkBuffer& buffer, VkDeviceMemory& bufferMemory);
+                      VkBuffer &buffer, VkDeviceMemory &bufferMemory);
 
     /**
      * @brief copies a buffer of a given size 
@@ -34,7 +35,7 @@ namespace buffer{
      * @param bufferMemory a reference to the VkDeviceMemory being allocated for the buffer
      */
     void createStagingBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties,
-        VkBuffer& buffer, VkDeviceMemory& bufferMemory);
+                             VkBuffer &buffer, VkDeviceMemory &bufferMemory);
 
     /**
      * @brief destroys staging buffers stored in the vector that holds them

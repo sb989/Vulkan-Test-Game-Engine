@@ -2,7 +2,8 @@
 #define __VTGE_IMAGE_HPP__
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
-namespace image{
+namespace image
+{
     /**
      * @brief creates a VkImage
      * @param width width of the image
@@ -16,9 +17,9 @@ namespace image{
      * @param image a reference to the image being created
      * @param imageMemory a reference to the memory being allocated
      */
-    void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples, 
-        VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, 
-        VkImage& image, VkDeviceMemory& imageMemory);
+    void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkSampleCountFlagBits numSamples,
+                     VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties,
+                     VkImage &image, VkDeviceMemory &imageMemory);
 
     /**
      * @brief determines if the format has a stencil component
@@ -36,8 +37,8 @@ namespace image{
      * @param commandBuffer the command buffer being used to store the transition command
      * @param mipLevels the number of mipLevels the image has
      */
-    void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, 
-    VkCommandBuffer commandBuffer, uint32_t mipLevels);
+    void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout,
+                               VkCommandBuffer commandBuffer, uint32_t mipLevels);
 
     /**
      * @brief create an image view for an image
@@ -48,7 +49,7 @@ namespace image{
      * @return returns the VkImageView created
      */
     VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels);
-        
+
 }
 
 #endif

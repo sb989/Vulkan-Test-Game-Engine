@@ -1,2 +1,4 @@
 VulkanTest
 .vscode
+models/*
+textures/*

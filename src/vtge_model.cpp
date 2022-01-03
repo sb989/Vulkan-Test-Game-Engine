@@ -1,212 +1,249 @@
 #define TINYOBJLOADER_IMPLEMENTATION
-#include <iostream>
+#include "vtge_model.hpp"
+#include "vtge_texture.hpp"
+#include "vtge_descriptor.hpp"
+#include "vtge_ubo.hpp"
+#include "vtge_mesh.hpp"
 #include "glm/gtx/string_cast.hpp"
-#include <vtge_model.hpp>
-#include <vtge_texture.hpp>
-#include <array>
-#include <cstring>
 #include <tiny_obj_loader.h>
+#include <regex>
+#include <cstring>
 #include <unordered_map>
-#include <vtge_descriptor.hpp>
-#include <vtge_ubo.hpp>
+#include <vector>
+#include <array>
+#include <iostream>
 extern VkDevice device;
-VkDescriptorSetLayout * Model::descriptorSetLayout = nullptr;
-
-Model::Model(std::string modelPath, uint32_t imageCount, std::string diffuseMapPath, std::string specularMapPath, glm::vec4 color){
+Model::Model(std::string modelPath, uint32_t imageCount, std::string diffuseMapPath, std::string specularMapPath, glm::vec4 color, std::string colorName)
+{
     this->modelPath = modelPath;
     this->diffuseMapPath = diffuseMapPath;
     this->specularMapPath = specularMapPath;
-    if(diffuseMapPath != "")
-        this->diffuseMap = new Texture(diffuseMapPath);
-    else if (color != glm::vec4(-1,-1,-1,-1))
-        this->diffuseMap = new Texture(64, 64, color);
-    else if (color == glm::vec4(-1,-1,-1,-1) && diffuseMapPath == ""){
-        this->diffuseMap = new Texture(64, 64, glm::vec4(200, 200, 200, 255));
-        std::cout<<modelPath<<std::endl;
-    }
-    if(specularMapPath != "")
-        this->specularMap = new Texture(specularMapPath);
-    else
-        this->specularMap = new Texture(64, 64, glm::vec4(125,125,125,255));
+    this->color = color;
+    this->colorName = colorName;
+    this->imageCount = imageCount;
+    assimpLoadModel();
     this->modelMat = glm::mat4(1.0f);
     this->velocity = glm::vec3(0.0f);
     this->rotation = glm::vec3(0.0f);
-    this->imageCount = imageCount;
-    
-    loadModel();
-    createVertexBuffer();
-    createIndexBuffer();
-    initDescriptorSets(imageCount);
-    Material mtrl = {32.0f};
-    updateMaterial(mtrl);
 }
 
-
-Model::~Model(){
-    if(diffuseMap)
-        delete diffuseMap;
-    if(specularMap)
-        delete specularMap;
-    vkDestroyBuffer(device, indexBuffer, nullptr);
-    vkFreeMemory(device, indexBufferMemory, nullptr);
-    vkDestroyBuffer(device, vertexBuffer, nullptr);
-    vkFreeMemory(device, vertexBufferMemory, nullptr);
-}
-
-void Model::initDescriptorSets(uint32_t imageCount){
-    if(!descriptorSetLayout){
-        setupDescriptorSetLayout();
+Model::~Model()
+{
+    for (int i = 0; i < meshes.size(); i++)
+    {
+        delete meshes[i];
     }
-    createDescriptorBuffers();
-    createDescriptorPool();
-    createDescriptorSets();
-    
 }
 
-void Model::setupDescriptorSetLayout(){
-
-    auto uboLayoutBinding = Descriptor::createDescriptorSetLayoutBinding(
-        0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr);
-    auto samplerLayoutBinding = Descriptor::createDescriptorSetLayoutBinding(
-        1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
-    auto specMapLayoutBinding = Descriptor::createDescriptorSetLayoutBinding(
-        2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
-    auto materialLayoutBinding = Descriptor::createDescriptorSetLayoutBinding(
-        3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
-    std::vector<VkDescriptorSetLayoutBinding> bindings = {uboLayoutBinding, samplerLayoutBinding, materialLayoutBinding, specMapLayoutBinding};
-
-    descriptorSetLayout = Descriptor::createDescriptorSetLayout(&bindings);
-}
-
-void Model::createDescriptorBuffers(){
-    Descriptor::createDescriptorBuffer(sizeof(UniformBufferObject), &uniformBuffers, &uniformBuffersMemory, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, imageCount);
-    Descriptor::createDescriptorBuffer(sizeof(Material), &material, &materialMemory, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, imageCount);
-}
-
-void Model::createDescriptorPool(){
-    std::vector<VkDescriptorPoolSize> poolSizes = {
-        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2*imageCount},
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2 * imageCount}
-    };
-    descriptorPool = Descriptor::createDescriptorPool(imageCount, poolSizes);
-}
-
-void Model::createDescriptorSets(){
-    descriptorSets = Descriptor::allocateDescriptorSets(imageCount, *descriptorSetLayout, *descriptorPool);
-    std::vector<VtgeBufferInfo> bufferInfos;
-    std::vector<VtgeImageInfo> imageInfos;
-    VtgeBufferInfo uniformBuffer {};
-    uniformBuffer.buffer = uniformBuffers.data();
-    uniformBuffer.offset = 0;
-    uniformBuffer.range = sizeof(UniformBufferObject);
-    uniformBuffer.binding = 0;
-    uniformBuffer.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    bufferInfos.push_back(uniformBuffer);
-    VtgeBufferInfo materialBuffer {};
-    materialBuffer.buffer = material.data();
-    materialBuffer.offset = 0;
-    materialBuffer.range = sizeof(Material);
-    materialBuffer.binding = 3;
-    materialBuffer.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    //bufferInfos.push_back(directionalLightBuffer);
-    bufferInfos.push_back(materialBuffer);
-    VtgeImageInfo imageBuffer{};
-    imageBuffer.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    imageBuffer.view = diffuseMap->textureImageView;
-    imageBuffer.sampler = diffuseMap->textureSampler;
-    imageBuffer.binding = 1;
-    imageBuffer.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    VtgeImageInfo specMapBuffer{};
-    specMapBuffer.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    specMapBuffer.view = specularMap->textureImageView;
-    specMapBuffer.sampler = specularMap->textureSampler;
-    specMapBuffer.binding = 2;
-    specMapBuffer.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    imageInfos.push_back(imageBuffer);
-    imageInfos.push_back(specMapBuffer);
-    Descriptor::populateDescriptorBuffer(descriptorSets,imageCount, bufferInfos, imageInfos);
-}
-
-void Model::createVertexBuffer(){
-    VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
-    createBufferAndCopy(bufferSize, &vertexBuffer, &vertexBufferMemory, 
-        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, vertices.data());
-}
-
-void Model::createIndexBuffer(){
-    VkDeviceSize bufferSize = sizeof(vertexIndices[0]) * vertexIndices.size();
-    createBufferAndCopy(bufferSize, &indexBuffer, &indexBufferMemory, 
-        VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, vertexIndices.data());
-}
-
-void Model::createBufferAndCopy(VkDeviceSize bufferSize, VkBuffer *buffer, VkDeviceMemory *deviceMemory, VkBufferUsageFlags flags,void *pointer){
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
-    buffer::createStagingBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
-        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, 
-        stagingBuffer, stagingBufferMemory);
-
-    void* data;
-    vkMapMemory(device, stagingBufferMemory, 0, bufferSize, 0, &data);
-    memcpy(data, pointer, (size_t) bufferSize);
-    vkUnmapMemory(device, stagingBufferMemory);
-    buffer::createBuffer(bufferSize, flags,
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, *buffer, *deviceMemory);
-    buffer::copyBuffer(stagingBuffer, *buffer, bufferSize);
-
-}
-
-void Model::loadModel(){
-    tinyobj::attrib_t attrib;
-    std::vector<tinyobj::shape_t> shapes;
-    std::vector<tinyobj::material_t> materials;
-    std::string warn, err;
-    std::unordered_map<Vertex, uint32_t> uniqueVertices{};
-    if(!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, modelPath.c_str())){
-        throw std::runtime_error(warn + err);
+void Model::recreateModel(uint32_t imageCount)
+{
+    for (int i = 0; i < meshes.size(); i++)
+    {
+        meshes[i]->recreateUBufferPoolSets(imageCount);
     }
-    for(const auto& shape: shapes){
-        for(const auto& index : shape.mesh.indices){
-            Vertex vertex{};
-            vertex.pos = {
-                attrib.vertices[3 * index.vertex_index + 0],
-                attrib.vertices[3 * index.vertex_index + 1],
-                attrib.vertices[3 * index.vertex_index + 2]
-            };
-            vertex.texCoord = {
-                attrib.texcoords[2 * index.texcoord_index + 0],
-                1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
-            };
-            vertex.color = {1.0f, 1.0f, 1.0f};
-            vertex.normal = {
-                attrib.normals[3 * index.normal_index + 0],
-                attrib.normals[3 * index.normal_index + 1],
-                attrib.normals[3 * index.normal_index + 2]
-            };
-            if (uniqueVertices.count(vertex) == 0){
-                uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
-                vertices.push_back(vertex);
-            }
-            vertexIndices.push_back(uniqueVertices[vertex]);       
+}
+
+void Model::assimpLoadModel()
+{
+    Assimp::Importer import;
+    const aiScene *scene = import.ReadFile(modelPath, aiProcess_Triangulate | aiProcess_FlipUVs);
+
+    if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
+    {
+        std::cout << "ERROR::ASSIMP::" << import.GetErrorString() << std::endl;
+        return;
+    }
+    directory = modelPath.substr(0, modelPath.find_last_of('/'));
+    glm::mat4 id = glm::mat4(1.0f);
+    processNode(scene->mRootNode, scene, nullptr);
+}
+
+void Model::processNode(aiNode *node, const aiScene *scene, Node *parentNode)
+{
+    //following learnopengl tutorial
+    //https://learnopengl.com/Model-Loading/Model
+    Node *n = new Node();
+    n->transform = node->mTransformation;
+    n->parent = parentNode;
+    for (unsigned int i = 0; i < node->mNumMeshes; i++)
+    {
+        aiMesh *mesh = scene->mMeshes[node->mMeshes[i]];
+        meshes.push_back(processMesh(mesh, scene, n));
+    }
+    // then do the same for each of its children
+    for (unsigned int i = 0; i < node->mNumChildren; i++)
+    {
+        processNode(node->mChildren[i], scene, n);
+    }
+}
+
+Mesh *Model::processMesh(aiMesh *mesh, const aiScene *scene, Node *node)
+{
+    //following learnopengl tutorial
+    //https://learnopengl.com/Model-Loading/Model
+    std::vector<Vertex> vertices;
+    std::vector<unsigned int> indices;
+    std::vector<Texture *> diffuseMaps;
+    std::vector<Texture *> specularMaps;
+
+    for (unsigned int i = 0; i < mesh->mNumVertices; i++)
+    {
+        Vertex vertex;
+        // process vertex positions, normals and texture coordinates
+        glm::vec3 vector;
+        vector.x = mesh->mVertices[i].x;
+        vector.y = mesh->mVertices[i].y;
+        vector.z = mesh->mVertices[i].z;
+        vertex.pos = vector;
+
+        vector.x = mesh->mNormals[i].x;
+        vector.y = mesh->mNormals[i].y;
+        vector.z = mesh->mNormals[i].z;
+        vertex.normal = vector;
+
+        if (mesh->mTextureCoords[0])
+        { // does the mesh contain texture coordinates?
+            glm::vec2 vec;
+            vec.x = mesh->mTextureCoords[0][i].x;
+            vec.y = mesh->mTextureCoords[0][i].y;
+            vertex.texCoord = vec;
         }
+        else
+            vertex.texCoord = glm::vec2(0.0f, 0.0f);
+
+        vertices.push_back(vertex);
+    }
+    // process indices
+    for (unsigned int i = 0; i < mesh->mNumFaces; i++)
+    {
+        aiFace face = mesh->mFaces[i];
+        for (unsigned int j = 0; j < face.mNumIndices; j++)
+            indices.push_back(face.mIndices[j]);
+    }
+    // process material
+    //std::cout<<"material index "<<mesh->mMaterialIndex<<std::endl;
+    if (mesh->mMaterialIndex >= 0)
+    {
+        aiMaterial *material = scene->mMaterials[mesh->mMaterialIndex];
+        diffuseMaps = loadMaterialTextures(material,
+                                           aiTextureType_DIFFUSE);
+        specularMaps = loadMaterialTextures(material,
+                                            aiTextureType_SPECULAR);
+    }
+    if (diffuseMaps.size() == 0)
+    {
+        if (diffuseMapPath != "")
+            diffuseMaps.push_back(Texture::createTextureFromImage(diffuseMapPath));
+        else if (color != glm::vec4(-1, -1, -1, -1))
+            diffuseMaps.push_back(Texture::createTextureFromColor(colorName, 64, 64, color));
+        else
+            diffuseMaps.push_back(Texture::createTextureFromColor("Gray", 64, 64, glm::vec4(125, 125, 125, 255)));
+    }
+    if (specularMaps.size() == 0)
+    {
+        if (specularMapPath != "")
+            specularMaps.push_back(Texture::createTextureFromImage(specularMapPath));
+        else
+            specularMaps.push_back(Texture::createTextureFromColor("Gray", 64, 64, glm::vec4(125, 125, 125, 255)));
+    }
+    Mesh *m = new Mesh(vertices, indices, diffuseMaps, specularMaps, imageCount, node);
+    return m;
+}
+
+std::vector<Texture *> Model::loadMaterialTextures(aiMaterial *mat, aiTextureType type)
+{
+    std::vector<Texture *> textures;
+    auto count = mat->GetTextureCount(type);
+    //std::cout<<"texture count "<< count <<std::endl;
+    for (unsigned int i = 0; i < count; i++)
+    {
+        aiString str;
+        mat->GetTexture(type, i, &str);
+        Texture *texture;
+        std::string textPath = str.C_Str();
+        std::string pathBegin = textPath.substr(0, 3);
+        if (pathBegin == "../" || pathBegin == "..\\")
+        {
+            textPath.replace(0, 3, "../textures/");
+        }
+        else
+        {
+            textPath.insert(0, "../textures/");
+        }
+        for (int i = 0; i < textPath.size(); i++)
+        {
+            if (textPath[i] == '\\')
+                textPath[i] = '/';
+        }
+        std::cout << "texture path " << textPath << std::endl;
+        texture = Texture::createTextureFromImage(textPath);
+        textures.push_back(texture);
+    }
+    return textures;
+}
+
+// void Model::loadModel(){
+//     tinyobj::attrib_t attrib;
+//     std::vector<tinyobj::shape_t> shapes;
+//     std::vector<tinyobj::material_t> materials;
+//     std::string warn, err;
+//     std::unordered_map<Vertex, uint32_t> uniqueVertices{};
+//     if(!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, modelPath.c_str())){
+//         throw std::runtime_error(warn + err);
+//     }
+//     for(const auto& shape: shapes){
+//         for(const auto& index : shape.mesh.indices){
+//             Vertex vertex{};
+//             vertex.pos = {
+//                 attrib.vertices[3 * index.vertex_index + 0],
+//                 attrib.vertices[3 * index.vertex_index + 1],
+//                 attrib.vertices[3 * index.vertex_index + 2]
+//             };
+//             vertex.texCoord = {
+//                 attrib.texcoords[2 * index.texcoord_index + 0],
+//                 1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
+//             };
+//             vertex.normal = {
+//                 attrib.normals[3 * index.normal_index + 0],
+//                 attrib.normals[3 * index.normal_index + 1],
+//                 attrib.normals[3 * index.normal_index + 2]
+//             };
+//             if (uniqueVertices.count(vertex) == 0){
+//                 uniqueVertices[vertex] = static_cast<uint32_t>(vertices.size());
+//                 vertices.push_back(vertex);
+//             }
+//             vertexIndices.push_back(uniqueVertices[vertex]);
+//         }
+//     }
+// }
+
+void Model::drawModel(std::vector<VkDescriptorSet> combinedDescriptorSets, VkCommandBuffer *commandBuffer, VkPipelineLayout pipelineLayout, int index)
+{
+    for (int i = 0; i < meshes.size(); i++)
+    {
+        meshes[i]->drawMesh(combinedDescriptorSets, commandBuffer, pipelineLayout, index);
     }
 }
 
-void Model::moveModel(glm::vec3 changeInPos){    
+void Model::moveModel(glm::vec3 changeInPos)
+{
     modelMat = glm::translate(modelMat, changeInPos);
 }
 
-void Model::scaleModel(glm::vec3 factor){
+void Model::scaleModel(glm::vec3 factor)
+{
     modelMat = glm::scale(modelMat, factor);
 }
 
-void Model::rotateModel(glm::vec3 rotation){
-    modelMat = glm::rotate(modelMat, glm::radians(rotation.x), glm::vec3(1,0,0));
-    modelMat = glm::rotate(modelMat, glm::radians(rotation.y), glm::vec3(0,1,0));
-    modelMat = glm::rotate(modelMat, glm::radians(rotation.z), glm::vec3(0,0,1));
+void Model::rotateModel(glm::vec3 rotation)
+{
+    modelMat = glm::rotate(modelMat, glm::radians(rotation.x), glm::vec3(1, 0, 0));
+    modelMat = glm::rotate(modelMat, glm::radians(rotation.y), glm::vec3(0, 1, 0));
+    modelMat = glm::rotate(modelMat, glm::radians(rotation.z), glm::vec3(0, 0, 1));
 }
 
-void Model::updateModelMat(uint32_t currentImage, glm::mat4 projection, glm::mat4 view){
+void Model::updateModelMat(uint32_t currentImage, glm::mat4 projection, glm::mat4 view)
+{
     rotateModel(rotation);
     moveModel(velocity);
     UniformBufferObject ubo{};
@@ -214,63 +251,21 @@ void Model::updateModelMat(uint32_t currentImage, glm::mat4 projection, glm::mat
     ubo.proj = projection;
     ubo.view = view;
     ubo.normMatrix = transpose(inverse(ubo.modelView));
-    void *data;
-    vkMapMemory(device, uniformBuffersMemory[currentImage], 0, sizeof(ubo), 0, &data);
-    memcpy(data, &ubo, sizeof(ubo));
-    vkUnmapMemory(device, uniformBuffersMemory[currentImage]);
-}
-
-glm::vec4 Model::getModelPos(){
-    return glm::vec4(modelMat[3][0],modelMat[3][1], modelMat[3][2], 1);
-}
-
-VkDescriptorSetLayout * Model::getDescriptorSetLayout(){
-    return descriptorSetLayout;
-}
-
-std::vector<VkDescriptorSet> * Model::getDescriptorSets(){
-    return descriptorSets;
-}
-
-void Model::cleanupMemory(){
-    for(size_t j = 0; j < imageCount; j++){
-        vkDestroyBuffer(device, uniformBuffers[j], nullptr);
-        vkFreeMemory(device, uniformBuffersMemory[j], nullptr);
-        vkDestroyBuffer(device, material[j], nullptr);
-        vkFreeMemory(device, materialMemory[j], nullptr);
+    for (int i = 0; i < meshes.size(); i++)
+    {
+        meshes[i]->updateUniformBuffers(ubo, currentImage);
     }
-    vkDestroyDescriptorPool(device,*descriptorPool,nullptr);
-    delete descriptorPool;
-    delete descriptorSets;
 }
 
-void Model::destroyDescriptorSetLayout(){
-    vkDestroyDescriptorSetLayout(device, *descriptorSetLayout, nullptr);
-    delete(descriptorSetLayout);
+glm::vec4 Model::getModelPos()
+{
+    return glm::vec4(modelMat[3][0], modelMat[3][1], modelMat[3][2], 1);
 }
 
-void Model::recreateUBufferPoolSets(uint32_t imageCount){
-    this->imageCount = imageCount;
-    createDescriptorBuffers();
-    createDescriptorPool();
-    createDescriptorSets();
-    Material mtrl = {32.0f};
-    updateMaterial(mtrl);
-}
-
-// void Model::recreateAllModels(uint32_t imageCount){
-//     std::cout<<objectList.size()<<std::endl;
-//     for(int i = 0; i < objectList.size(); i++){
-//         objectList[i]->recreateUBufferPoolSets(imageCount);
-//     }
-// }
-
-
-void Model::updateMaterial(Material mat){
-    for(int currentImage = 0; currentImage < imageCount; currentImage++){
-        void * data;
-        vkMapMemory(device, materialMemory[currentImage], 0, sizeof(mat), 0, &data);
-        memcpy(data, &mat, sizeof(mat));
-        vkUnmapMemory(device, materialMemory[currentImage]);
+void Model::cleanupMemory()
+{
+    for (int i = 0; i < meshes.size(); i++)
+    {
+        meshes[i]->cleanupMemory();
     }
 }

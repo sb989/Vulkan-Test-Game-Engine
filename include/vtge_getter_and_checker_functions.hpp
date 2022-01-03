@@ -8,12 +8,14 @@
 #include <vector>
 #include <fstream>
 #include "vtge_queuefamilyindices.hpp"
-struct SwapchainSupportDetails {
+struct SwapchainSupportDetails
+{
     std::vector<VkSurfaceFormatKHR> formats;
-    std::vector<VkPresentModeKHR>   presentModes;
-    VkSurfaceCapabilitiesKHR        capabilities;
+    std::vector<VkPresentModeKHR> presentModes;
+    VkSurfaceCapabilitiesKHR capabilities;
 };
-namespace getterChecker{
+namespace getterChecker
+{
     /**
      * @brief finds the memory type needed for the properties provided
      * @param typeFilter filter to remove  memory types that arent wanted
@@ -29,7 +31,7 @@ namespace getterChecker{
      * @param deviceExtensions a list of device extensions that must be supported
      * @return returns true or false depending on if the device is suitable or not
      */
-    bool isDeviceSuitable(VkPhysicalDevice device, SwapchainSupportDetails swapChainSupport, std::vector<const char*> deviceExtensions);
+    bool isDeviceSuitable(VkPhysicalDevice device, SwapchainSupportDetails swapChainSupport, std::vector<const char *> deviceExtensions);
 
     /**
      * @brief determines if the physical device supports the list of device extensions
@@ -37,27 +39,27 @@ namespace getterChecker{
      * @param deviceExtensions the list of device extensions that must be supported
      * @return returns true if the device supports the device extensions and false if not
      */
-    bool checkDeviceExtensionSupport(VkPhysicalDevice device, std::vector<const char*> deviceExtensions);
+    bool checkDeviceExtensionSupport(VkPhysicalDevice device, std::vector<const char *> deviceExtensions);
 
     /**
      * @brief determines if the validation layers are supported
      * @param validationLayers a list of validation layers to check for suppory
      * @return returns true if all layers are supported; false otherwise
      */
-    bool checkValidationLayerSupport(std::vector<const char*> validationLayers);
+    bool checkValidationLayerSupport(std::vector<const char *> validationLayers);
 
     /**
      * @brief finds required extensions 
      * @return returns a list of required extensions
      */
-    std::vector<const char*> getRequiredExtensions();
+    std::vector<const char *> getRequiredExtensions();
 
     /**
      * @brief reads a file and returns the contents
      * @param filename the name of the file being read
      * @return a vector of chars of the contents of the file
      */
-    std::vector<char> readFile(const std::string& filename);
+    std::vector<char> readFile(const std::string &filename);
 
     /**
      * @brief find the depth format that supports a list of features
@@ -78,8 +80,8 @@ namespace getterChecker{
      * @param features a VkFormatFeatureFlags object that is used to determine if a candidate supports features the user wants
      * @return returns a VkFormat object that supports the features or throws a runtime error
      */
-    VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling,
-        VkFormatFeatureFlags features);
+    VkFormat findSupportedFormat(const std::vector<VkFormat> &candidates, VkImageTiling tiling,
+                                 VkFormatFeatureFlags features);
 }
 
 #endif
