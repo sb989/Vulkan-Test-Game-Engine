@@ -1,11 +1,9 @@
-#define TINYOBJLOADER_IMPLEMENTATION
 #include "vtge_model.hpp"
 #include "vtge_texture.hpp"
 #include "vtge_descriptor.hpp"
 #include "vtge_ubo.hpp"
 #include "vtge_mesh.hpp"
 #include "glm/gtx/string_cast.hpp"
-#include <tiny_obj_loader.h>
 #include <regex>
 #include <cstring>
 #include <unordered_map>
