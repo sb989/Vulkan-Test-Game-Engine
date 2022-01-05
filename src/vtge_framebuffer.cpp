@@ -1,13 +1,10 @@
 #include "vtge_framebuffer.hpp"
 #include "vtge_image.hpp"
-#include <array>
-#include <stdexcept>
 #include "vtge_swapchain.hpp"
 #include "vtge_getter_and_checker_functions.hpp"
-extern VkDevice device;
-extern VkSampleCountFlagBits msaaSamples;
-extern VkCommandBuffer graphicsCommandBuffer;
-extern VkQueue graphicsQueue;
+#include "vtge_graphics.hpp"
+#include <array>
+#include <stdexcept>
 
 Framebuffer::Framebuffer(Swapchain *swapchain, VkRenderPass *renderPass)
 {
@@ -22,6 +19,7 @@ Framebuffer::Framebuffer(Swapchain *swapchain, VkRenderPass *renderPass)
 
 Framebuffer::~Framebuffer()
 {
+    VkDevice device = Graphics::getDevice();
     vkDestroyImageView(device, depthImageView, nullptr);
     vkDestroyImage(device, depthImage, nullptr);
     vkFreeMemory(device, depthImageMemory, nullptr);
@@ -36,6 +34,8 @@ Framebuffer::~Framebuffer()
 
 void Framebuffer::createFramebuffers()
 {
+    VkDevice device = Graphics::getDevice();
+
     swapchainFramebuffers.resize(swapchainImageViews.size());
     for (size_t i = 0; i < swapchainImageViews.size(); i++)
     {
@@ -61,6 +61,7 @@ void Framebuffer::createFramebuffers()
 void Framebuffer::createColorResources()
 {
     VkFormat colorFormat = swapchainImageFormat;
+    VkSampleCountFlagBits msaaSamples = Graphics::getMsaaSamples();
     image::createImage(swapchainExtent.width, swapchainExtent.height, 1, msaaSamples, colorFormat,
                        VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
                        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, colorImage, colorImageMemory);
@@ -70,6 +71,8 @@ void Framebuffer::createColorResources()
 void Framebuffer::createDepthResources()
 {
     VkFormat depthFormat = getterChecker::findDepthFormat();
+    VkSampleCountFlagBits msaaSamples = Graphics::getMsaaSamples();
+    VkCommandBuffer graphicsCommandBuffer = Graphics::getGraphicsCommandBuffer();
     image::createImage(swapchainExtent.width, swapchainExtent.height, 1, msaaSamples, depthFormat, VK_IMAGE_TILING_OPTIMAL,
                        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImage, depthImageMemory);
     depthImageView = image::createImageView(depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1);

@@ -2,19 +2,40 @@
 #include "vtge_model.hpp"
 #include "vtge_pipeline.hpp"
 #include "vtge_texture.hpp"
+#include "vtge_descriptor.hpp"
+#include "vtge_light.hpp"
+#include "vtge_swapchain.hpp"
+#include "vtge_graphics.hpp"
 #include <iostream>
-#include <vtge_descriptor.hpp>
-#include <vtge_light.hpp>
 #include <cstring>
 static std::vector<Object *> objectList{};
-extern VkDevice device;
 Object::Object(std::string modelPath, uint32_t imageCount, std::string diffuseMapPath, std::string specularMapPath, glm::vec4 color, std::string colorName)
 {
-
     this->m = new Model(modelPath, imageCount, diffuseMapPath, specularMapPath, color, colorName);
     this->imageCount = imageCount;
     objectList.push_back(this);
     isVisible = true;
+}
+
+void Object::createObject(std::string modelPath, glm::vec3 translate, glm::vec3 scale, glm::vec3 rotate, std::string diffuseMapPath, std::string specularMapPath)
+{
+    uint32_t imgCount = Graphics::getSwapchain()->swapchainImages.size();
+    Object *obj = new Object(modelPath, imgCount, diffuseMapPath, specularMapPath);
+    setObjectTransform(obj, translate, scale, rotate);
+}
+
+void Object::createObject(std::string modelPath, glm::vec3 translate, glm::vec3 scale, glm::vec3 rotate, glm::vec4 color, std::string colorName)
+{
+    uint32_t imgCount = Graphics::getSwapchain()->swapchainImages.size();
+    Object *obj = new Object(modelPath, imgCount, "", "", color, colorName);
+    setObjectTransform(obj, translate, scale, rotate);
+}
+
+void Object::setObjectTransform(Object *obj, glm::vec3 translate, glm::vec3 scale, glm::vec3 rotate)
+{
+    obj->getModel()->moveModel(translate);
+    obj->getModel()->rotateModel(rotate);
+    obj->getModel()->scaleModel(scale);
 }
 
 Object::~Object()
@@ -49,7 +70,6 @@ void Object::updateAllObjects(uint32_t currentImage, glm::mat4 projection, glm::
 
 void Object::updateObject(uint32_t currentImage, glm::mat4 projection, glm::mat4 view)
 {
-    //updateUniformBuffer(currentImage, projection, view);
     m->updateModelMat(currentImage, projection, view);
 }
 

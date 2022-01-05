@@ -1,11 +1,12 @@
 #include "vtge_descriptor.hpp"
 #include "vtge_buffer_helper_functions.hpp"
+#include "vtge_graphics.hpp"
 #include <stdexcept>
-extern VkDevice device;
 namespace Descriptor
 {
     VkDescriptorSetLayout *createDescriptorSetLayout(std::vector<VkDescriptorSetLayoutBinding> *bindings)
     {
+        VkDevice device = Graphics::getDevice();
         VkDescriptorSetLayout *descriptorSetLayout = new VkDescriptorSetLayout();
         VkDescriptorSetLayoutCreateInfo layoutInfo = {};
         layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -20,6 +21,7 @@ namespace Descriptor
 
     VkDescriptorPool *createDescriptorPool(uint32_t imageCount, std::vector<VkDescriptorPoolSize> poolSizes)
     {
+        VkDevice device = Graphics::getDevice();
         VkDescriptorPool *descriptorPool = new VkDescriptorPool();
         VkDescriptorPoolCreateInfo poolInfo{};
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -47,6 +49,7 @@ namespace Descriptor
 
     std::vector<VkDescriptorSet> *allocateDescriptorSets(uint32_t imageCount, VkDescriptorSetLayout descriptorSetLayout, VkDescriptorPool descriptorPool)
     {
+        VkDevice device = Graphics::getDevice();
         std::vector<VkDescriptorSet> *descriptorSets = new std::vector<VkDescriptorSet>();
         std::vector<VkDescriptorSetLayout> layouts(imageCount, descriptorSetLayout);
         VkDescriptorSetAllocateInfo allocInfo{};
@@ -81,6 +84,7 @@ namespace Descriptor
 
     void updateDescriptorSets(std::vector<VkWriteDescriptorSet> descriptorWrites)
     {
+        VkDevice device = Graphics::getDevice();
         vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()),
                                descriptorWrites.data(), 0, nullptr);
     }

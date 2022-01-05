@@ -26,6 +26,10 @@ public:
     void setIsVisible(bool visible) { isVisible = visible; }
     Model *getModel() { return m; }
     void setImageCount(uint32_t imageCount);
+    static void createObject(std::string modelPath, glm::vec3 translate, glm::vec3 scale, glm::vec3 rotate, std::string diffuseMapPath = "", std::string specularMapPath = "");
+    static void createObject(std::string modelPath, glm::vec3 translate, glm::vec3 scale, glm::vec3 rotate, glm::vec4 color, std::string colorName);
+
+    static void setObjectTransform(Object *obj, glm::vec3 translate, glm::vec3 scale, glm::vec3 rotate);
 
 private:
     Model *m;

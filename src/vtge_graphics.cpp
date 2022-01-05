@@ -1,19 +1,5 @@
 #include "vtge_graphics.hpp"
 #include "vtge_debug_helper_functions.hpp"
-#include <array>
-#include <set>
-#include <iostream>
-#include <memory>
-#include <cstdlib>
-#include <chrono>
-#include <glm/glm.hpp>
-#include <glm/gtx/hash.hpp>
-#include <glm/gtc/quaternion.hpp>
-#include <glm/gtx/quaternion.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include "glm/gtx/string_cast.hpp"
-#include <glm/gtx/norm.hpp>
-#include <type_traits>
 #include "vtge_swapchain.hpp"
 #include "vtge_framebuffer.hpp"
 #include "vtge_pipeline.hpp"
@@ -22,6 +8,20 @@
 #include "vtge_mesh.hpp"
 #include "vtge_light.hpp"
 #include "vtge_texture.hpp"
+#include <glm/glm.hpp>
+#include <glm/gtx/hash.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <glm/gtx/quaternion.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include "glm/gtx/string_cast.hpp"
+#include <glm/gtx/norm.hpp>
+#include <type_traits>
+#include <chrono>
+#include <array>
+#include <set>
+#include <iostream>
+#include <memory>
+#include <cstdlib>
 #define GLFW_INCLUDE_VULKAN
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -29,14 +29,25 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #define GLM_ENABLE_EXPERIMENTAL
 
-VkDevice device;
 VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
-VkQueue graphicsQueue, presentQueue, transferQueue;
-VkCommandPool graphicsCommandPool, transferCommandPool;
-QueueFamilyIndices indices;
-VkCommandBuffer transferCommandBuffer, graphicsCommandBuffer;
 VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-//VkDescriptorSetLayout           descriptorSetLayout;
+Swapchain *Graphics::swapchain = nullptr;
+SwapchainSupportDetails Graphics::swapchainSupport = {};
+Framebuffer *Graphics::framebuffer = nullptr;
+VkInstance Graphics::instance = {};
+VkRenderPass Graphics::renderPass{};
+Pipeline *Graphics::graphicsPipeline = nullptr,
+         *Graphics::lightPipeline = nullptr;
+VkQueue Graphics::graphicsQueue = {},
+        Graphics::presentQueue = {},
+        Graphics::transferQueue = {};
+VkCommandPool Graphics::graphicsCommandPool = {},
+              Graphics::transferCommandPool = {};
+QueueFamilyIndices Graphics::indices = {};
+VkCommandBuffer Graphics::transferCommandBuffer = {},
+                Graphics::graphicsCommandBuffer;
+VkSurfaceKHR Graphics::surface = {};
+VkDevice Graphics::device = {};
 extern bool enableValidationLayers;
 
 Graphics::Graphics(uint32_t width, uint32_t height, std::string windowTitle)
@@ -88,18 +99,11 @@ void Graphics::setUpWindow()
 {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    //glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
     window = glfwCreateWindow(WIDTH, HEIGHT, windowTitle.c_str(), nullptr, nullptr);
     glfwSetWindowUserPointer(window, this);
-    // glfwSetInputMode(window,GLFW_CURSOR,GLFW_CURSOR_DISABLED);
-    // if(glfwRawMouseMotionSupported()){
-    //     glfwSetInputMode(window,GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
-    // }
     cursorXPos = cursorYPos = 0.0f;
-    //glfwSetCursorPos(window, cursorXPos, cursorYPos);
     glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
     glfwSetCursorPosCallback(window, handleMouse);
-    //glfwSetKeyCallback(window, handleKeyPress);
 }
 
 void Graphics::setUpGraphics()
@@ -112,45 +116,23 @@ void Graphics::setUpGraphics()
     swapchain = new Swapchain(&surface, window, swapchainSupport);
     createRenderPass();
     createCommandPool();
-    graphicsCommandBuffer = beginSingleTimeCommands(graphicsCommandPool);
-    transferCommandBuffer = beginSingleTimeCommands(transferCommandPool);
+    beginGraphicsCommandBuffer();
+    beginTransferCommandBuffer();
     std::cout << "creating framebuffer now!" << std::endl;
     framebuffer = new Framebuffer(swapchain, &renderPass);
     std::cout << "finished creating framebuffer creating model now!" << std::endl;
     std::cout << "creating objects" << std::endl;
     Light::setImageCount(swapchain->swapchainImages.size());
     Light::initLights();
-    createDirectionalLight("../models/cube.obj", glm::vec3(1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec4(0, -1, 0, 1), glm::vec4(0, 0, 1, 1),
-                           glm::vec4(1), glm::vec4(.0, .0, .0, 1), glm::vec4(1), "white");
-    // createDirectionalLight("../models/cube.obj", glm::vec3(1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0, 0, -1), glm::vec3(1,0,0), glm::vec3(15, 5, 1),
-    //     glm::vec3(.5), glm::vec3(.2), glm::vec3(1));
-    createPointLight("../models/cube.obj", glm::vec3(1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec4(15, 5, 1, 1),
-                     glm::vec4(1, 0, 0, 1), glm::vec4(.2, .2, .2, 1), glm::vec4(1), 1.0f, 0.14f, 0.07f, "red");
-    // createSpotLight("../models/cube.obj", glm::vec3(1.0f), glm::vec3(0), glm::vec4(0,1,0,1), glm::vec4(0,-1,0,1),
-    //     glm::vec4(0,0,.1,1), glm::vec4(0,0,.1,1), glm::vec4(1), 1, .14f, .07f, 12.5, 17.5, "blue");
-    // createPointLight("../models/cube.obj", glm::vec3(1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1,0,1), glm::vec3(15, 5, 1),
-    //         glm::vec3(.5), glm::vec3(.2), glm::vec3(1));
-    createObject("../models/cube.obj", "../textures/crate_diffuse.png", glm::vec3(2, 14, -1), glm::vec3(1.0f), glm::vec3(0.0f, 0.0f, 0.0f), "../textures/crate_specular.png");
-    createObject("../models/cube.obj", glm::vec4(0, 200, 125, 255), "ugly", glm::vec3(2, 10, -1), glm::vec3(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
-    createObject(BANANA_MODEL_PATH, BANANA_TEXTURE_PATH, glm::vec3(2, -5, -1), glm::vec3(0.05f), glm::vec3(0.0f, 90.0f, 0.0f));
-    createObject(VIKING_MODEL_PATH, VIKING_TEXTURE_PATH, glm::vec3(-4, 5, 1), glm::vec3(1.0f), glm::vec3(0.0f));
-    //createObject(BANANA_MODEL_PATH, glm::vec3(2, 5, -1), glm::vec3(0.05f), glm::vec3(0.0f, 0.0f, 0.0f));
-    createObject("../models/porsche.gltf", glm::vec3(10, 10, 10), glm::vec3(1), glm::vec3(90, 0, 0));
+    Mesh::initMeshSystem();
     VkDescriptorSetLayout lightPipelineLayouts[1] = {*Mesh::getDescriptorSetLayout()};
     VkDescriptorSetLayout graphicPipelineLayouts[2] = {*Mesh::getDescriptorSetLayout(), *Light::getDescriptorSetLayout()};
     graphicsPipeline = new Pipeline("../shaders/obj_vert.spv", "../shaders/obj_frag.spv", swapchain, &renderPass, graphicPipelineLayouts, 2);
     lightPipeline = new Pipeline("../shaders/light_vert.spv", "../shaders/light_frag.spv", swapchain, &renderPass, lightPipelineLayouts, 1);
-    std::cout << "finisehd creating objects" << std::endl;
-    std::cout << "finisehd creating models!" << std::endl;
-
-    endSingleTimeCommands(transferCommandBuffer, transferCommandPool, transferQueue);
-    std::cout << "submitting transfer command buffer!" << std::endl;
-    endSingleTimeCommands(graphicsCommandBuffer, graphicsCommandPool, graphicsQueue);
-    std::cout << "submitting grahpics command buffer!" << std::endl;
+    endTransferCommandBuffer();
+    endGraphicsCommandBuffer();
     buffer::cleanupStagingBuffers();
     allocateDrawCommandBuffers();
-    //createDrawCommandBuffers();
-    std::cout << "finished creating draw command buffers!" << std::endl;
     createSyncObjects();
 }
 
@@ -245,7 +227,6 @@ void Graphics::pickPhysicalDevice()
 
 void Graphics::createLogicalDevice()
 {
-
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
     std::set<uint32_t> uniqueQueueFamilies = {indices.graphicsFamily.value(),
                                               indices.presentFamily.value(), indices.transferFamily.value()};
@@ -461,8 +442,7 @@ void Graphics::createSyncObjects()
 bool Graphics::waitForFence(uint32_t &imageIndex)
 {
     vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
-    //vkResetFences(device, 1, &inFlightFences[currentFrame]);
-    //uint32_t imageIndex;
+
     VkResult result = vkAcquireNextImageKHR(device, swapchain->swapchain, UINT64_MAX,
                                             imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
 
@@ -625,9 +605,6 @@ void Graphics::handleMouse(GLFWwindow *window, double x_pos, double y_pos)
         camPitch += ydiff * .05;
         cursorXPos = x_pos;
         cursorYPos = y_pos;
-        std::cout << "camyaw" << camYaw << std::endl;
-        std::cout << "oldCamYaw" << oldCamYaw << std::endl;
-        std::cout << "xdiff" << xdiff << std::endl;
         updateCamera();
     }
 }
@@ -714,64 +691,6 @@ void Graphics::framebufferResizeCallback(GLFWwindow *window, int width, int heig
     app->framebufferResized = true;
 }
 
-void Graphics::createObject(std::string modelPath, std::string diffuseMapPath, glm::vec3 translate, glm::vec3 scale, glm::vec3 rotate, std::string specularMapPath)
-{
-    Object *obj = new Object(modelPath, swapchain->swapchainImages.size(), diffuseMapPath, specularMapPath);
-    setObjectTransform(obj, translate, scale, rotate);
-}
-
-void Graphics::createObject(std::string modelPath, glm::vec4 color, std::string colorName, glm::vec3 translate, glm::vec3 scale, glm::vec3 rotate)
-{
-    Object *obj = new Object(modelPath, swapchain->swapchainImages.size(), "", "", color, colorName);
-    setObjectTransform(obj, translate, scale, rotate);
-}
-
-void Graphics::createObject(std::string modelPath, glm::vec3 translate, glm::vec3 scale, glm::vec3 rotate)
-{
-    Object *obj = new Object(modelPath, swapchain->swapchainImages.size());
-    setObjectTransform(obj, translate, scale, rotate);
-}
-
-void Graphics::setObjectTransform(Object *obj, glm::vec3 translate, glm::vec3 scale, glm::vec3 rotate)
-{
-    obj->getModel()->moveModel(translate);
-    obj->getModel()->rotateModel(rotate);
-    obj->getModel()->scaleModel(scale);
-    //obj->getModel()->setRotation(rotate / 40.0f);
-}
-
-void Graphics::createPointLight(std::string modelPath, glm::vec3 scale, glm::vec3 rotate, glm::vec4 lightPos,
-                                glm::vec4 diffuse, glm::vec4 ambient, glm::vec4 specular, float constant, float linear, float quadratic, std::string colorName)
-{
-    Light *l = new Light(modelPath, lightPos, swapchain->swapchainImages.size(), diffuse, ambient,
-                         specular, constant, linear, quadratic, colorName);
-    l->getModel()->rotateModel(rotate);
-    l->getModel()->scaleModel(scale);
-    l->getModel()->setRotation(rotate / 40.0f);
-    //lightList.push_back(m);
-}
-
-void Graphics::createDirectionalLight(std::string modelPath, glm::vec3 scale, glm::vec3 rotate, glm::vec4 direction, glm::vec4 lightPos,
-                                      glm::vec4 diffuse, glm::vec4 ambient, glm::vec4 specular, std::string colorName)
-{
-    Light *l = new Light(modelPath, lightPos, direction, swapchain->swapchainImages.size(), diffuse, ambient, specular, colorName);
-    l->getModel()->rotateModel(rotate);
-    l->getModel()->scaleModel(scale);
-    l->getModel()->setRotation(rotate / 40.0f);
-    //lightList.push_back(m);
-}
-
-void Graphics::createSpotLight(std::string modelPath, glm::vec3 scale, glm::vec3 rotate, glm::vec4 direction, glm::vec4 lightPos,
-                               glm::vec4 diffuse, glm::vec4 ambient, glm::vec4 specular, float constant, float linear, float quadratic,
-                               float cutOff, float outerCutOff, std::string colorName)
-{
-    Light *l = new Light(modelPath, lightPos, direction, swapchain->swapchainImages.size(), diffuse, ambient,
-                         specular, constant, linear, quadratic, cutOff, outerCutOff, colorName);
-    l->getModel()->rotateModel(rotate);
-    l->getModel()->scaleModel(scale);
-    l->getModel()->setRotation(rotate / 40.0f);
-}
-
 VkCommandBuffer Graphics::beginSingleTimeCommands(VkCommandPool pool)
 {
     VkCommandBufferAllocateInfo allocInfo{};
@@ -788,6 +707,16 @@ VkCommandBuffer Graphics::beginSingleTimeCommands(VkCommandPool pool)
     return commandBuffer;
 }
 
+void Graphics::beginGraphicsCommandBuffer()
+{
+    graphicsCommandBuffer = beginSingleTimeCommands(graphicsCommandPool);
+}
+
+void Graphics::beginTransferCommandBuffer()
+{
+    transferCommandBuffer = beginSingleTimeCommands(transferCommandPool);
+}
+
 void Graphics::endSingleTimeCommands(VkCommandBuffer commandBuffer, VkCommandPool pool, VkQueue queue)
 {
     vkEndCommandBuffer(commandBuffer);
@@ -798,6 +727,16 @@ void Graphics::endSingleTimeCommands(VkCommandBuffer commandBuffer, VkCommandPoo
     vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
     vkQueueWaitIdle(queue);
     vkFreeCommandBuffers(device, pool, 1, &commandBuffer);
+}
+
+void Graphics::endGraphicsCommandBuffer()
+{
+    endSingleTimeCommands(graphicsCommandBuffer, graphicsCommandPool, graphicsQueue);
+}
+
+void Graphics::endTransferCommandBuffer()
+{
+    endSingleTimeCommands(transferCommandBuffer, transferCommandPool, transferQueue);
 }
 
 void Graphics::cleanupSwapchain()
@@ -834,11 +773,11 @@ void Graphics::recreateSwapchain()
     VkDescriptorSetLayout lightPipelineLayouts[1] = {*Mesh::getDescriptorSetLayout()};
     graphicsPipeline = new Pipeline("../shaders/obj_vert.spv", "../shaders/obj_frag.spv", swapchain, &renderPass, graphicPipelineLayouts, 2);
     lightPipeline = new Pipeline("../shaders/light_vert.spv", "../shaders/light_frag.spv", swapchain, &renderPass, lightPipelineLayouts, 1);
-    graphicsCommandBuffer = beginSingleTimeCommands(graphicsCommandPool);
+    beginGraphicsCommandBuffer();
     framebuffer = new Framebuffer(swapchain, &renderPass);
     Light::recreateAllLights(swapchain->swapchainImages.size());
     Object::recreateAllObjects(swapchain->swapchainImages.size());
-    endSingleTimeCommands(graphicsCommandBuffer, graphicsCommandPool, graphicsQueue);
+    endGraphicsCommandBuffer();
     allocateDrawCommandBuffers();
     //createDrawCommandBuffers();
 }
@@ -899,4 +838,94 @@ glm::quat Graphics::angleBetweenVectors(glm::vec3 start, glm::vec3 end)
         rotationAxis.x * invs,
         rotationAxis.y * invs,
         rotationAxis.z * invs);
+}
+
+VkDevice Graphics::getDevice()
+{
+    return device;
+}
+
+Swapchain *Graphics::getSwapchain()
+{
+    return swapchain;
+}
+
+SwapchainSupportDetails Graphics::getSwapchainSupport()
+{
+    return swapchainSupport;
+}
+
+Framebuffer *Graphics::getFramebuffer()
+{
+    return framebuffer;
+}
+
+VkInstance Graphics::getInstance()
+{
+    return instance;
+}
+
+Pipeline *Graphics::getGraphicsPipeline()
+{
+    return graphicsPipeline;
+}
+
+Pipeline *Graphics::getLightPipeline()
+{
+    return lightPipeline;
+}
+
+VkCommandBuffer Graphics::getGraphicsCommandBuffer()
+{
+    return graphicsCommandBuffer;
+}
+
+VkCommandBuffer Graphics::getTransferCommandBuffer()
+{
+    return transferCommandBuffer;
+}
+
+VkQueue Graphics::getGraphicsQueue()
+{
+    return graphicsQueue;
+}
+
+VkQueue Graphics::getPresentQueue()
+{
+    return presentQueue;
+}
+
+VkQueue Graphics::getTransferQueue()
+{
+    return transferQueue;
+}
+
+VkCommandPool Graphics::getGraphicsCommandPool()
+{
+    return graphicsCommandPool;
+}
+
+VkCommandPool Graphics::getTransferCommandPool()
+{
+    return transferCommandPool;
+}
+
+QueueFamilyIndices Graphics::getQueueFamilyIndices()
+{
+    return indices;
+}
+
+VkSurfaceKHR Graphics::getSurface()
+{
+    return surface;
+}
+
+VkSampleCountFlagBits Graphics::getMsaaSamples()
+{
+    return msaaSamples;
+}
+
+VkPhysicalDevice Graphics::getPhysicalDevice()
+{
+    return physicalDevice;
 }

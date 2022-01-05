@@ -1,17 +1,16 @@
 #include "vtge_buffer_helper_functions.hpp"
 #include "vtge_getter_and_checker_functions.hpp"
-
+#include "vtge_graphics.hpp"
 std::vector<VkDeviceMemory> stagingBuffersMemory = {0};
 std::vector<VkBuffer> stagingBuffers = {0};
-extern QueueFamilyIndices indices;
-extern VkDevice device;
-extern VkCommandBuffer transferCommandBuffer;
 namespace buffer
 {
 
     void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties,
                       VkBuffer &buffer, VkDeviceMemory &bufferMemory)
     {
+        QueueFamilyIndices indices = Graphics::getQueueFamilyIndices();
+        VkDevice device = Graphics::getDevice();
         uint32_t queueIndices[] = {indices.graphicsFamily.value(), indices.transferFamily.value()};
         VkBufferCreateInfo bufferInfo{};
         bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -44,6 +43,7 @@ namespace buffer
 
     void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
     {
+        VkCommandBuffer transferCommandBuffer = Graphics::getTransferCommandBuffer();
         VkBufferCopy copyRegion{};
         copyRegion.srcOffset = 0;
         copyRegion.dstOffset = 0;
@@ -61,6 +61,7 @@ namespace buffer
 
     void cleanupStagingBuffers()
     {
+        VkDevice device = Graphics::getDevice();
         int stagingBufferCount = stagingBuffersMemory.size();
         for (int i = 0; i < stagingBufferCount; i++)
         {

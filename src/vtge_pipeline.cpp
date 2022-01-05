@@ -1,9 +1,7 @@
 #include "vtge_pipeline.hpp"
 #include "vtge_vertex.hpp"
 #include "vtge_swapchain.hpp"
-
-extern VkSampleCountFlagBits msaaSamples;
-extern VkDevice device;
+#include "vtge_graphics.hpp"
 
 Pipeline::Pipeline(std::string vertPath, std::string fragPath, Swapchain *swapchain,
                    VkRenderPass *renderPass, VkDescriptorSetLayout *descriptorSetLayout, uint32_t setLayoutCount)
@@ -19,6 +17,7 @@ Pipeline::Pipeline(std::string vertPath, std::string fragPath, Swapchain *swapch
 
 Pipeline::~Pipeline()
 {
+    VkDevice device = Graphics::getDevice();
     vkDestroyPipeline(device, pipeline, nullptr);
     vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
 }
@@ -58,6 +57,7 @@ VkPipelineColorBlendStateCreateInfo Pipeline::createColorBlending()
 
 VkPipelineMultisampleStateCreateInfo Pipeline::createMultiSampling()
 {
+    VkSampleCountFlagBits msaaSamples = Graphics::getMsaaSamples();
     VkPipelineMultisampleStateCreateInfo multisampling{};
     multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
     multisampling.sampleShadingEnable = VK_FALSE; // set to VK_TRUE to enable sample shading (anti aliasing for textures)
@@ -135,10 +135,7 @@ VkPipelineVertexInputStateCreateInfo *Pipeline::createVertexInputInfo()
 
 void Pipeline::createPipelineLayout()
 {
-    //VkPushConstantRange pushConstantRange{};
-    //pushConstantRange.offset = 0;
-    //pushConstantRange.size = sizeof(PushConstants);
-    //pushConstantRange.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    VkDevice device = Graphics::getDevice();
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutInfo.setLayoutCount = setLayoutCount;   // Optional
@@ -169,6 +166,7 @@ VkPipelineDepthStencilStateCreateInfo Pipeline::createDepthStencil()
 
 VkShaderModule Pipeline::createShaderModule(const std::vector<char> &code)
 {
+    VkDevice device = Graphics::getDevice();
     VkShaderModuleCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     createInfo.codeSize = code.size();
@@ -207,6 +205,7 @@ void Pipeline::loadShaderModule(std::string vertFilePath, std::string fragFilePa
 
 void Pipeline::createPipeline()
 {
+    VkDevice device = Graphics::getDevice();
     createPipelineLayout();
     loadShaderModule(vertFilePath, fragFilePath);
 

@@ -1,11 +1,9 @@
 #include "vtge_swapchain.hpp"
-#include <stdexcept>
 #include "vtge_image.hpp"
 #include "vtge_getter_and_checker_functions.hpp"
+#include "vtge_graphics.hpp"
+#include <stdexcept>
 #include <iostream>
-extern VkDevice device;
-extern VkPhysicalDevice physicalDevice;
-extern QueueFamilyIndices indices;
 
 Swapchain::Swapchain(VkSurfaceKHR *surface, GLFWwindow *window, SwapchainSupportDetails swapchainSupport)
 {
@@ -18,6 +16,7 @@ Swapchain::Swapchain(VkSurfaceKHR *surface, GLFWwindow *window, SwapchainSupport
 
 Swapchain::~Swapchain()
 {
+    VkDevice device = Graphics::getDevice();
     for (size_t i = 0; i < swapchainImageViews.size(); i++)
     {
         vkDestroyImageView(device, swapchainImageViews[i], nullptr);
@@ -27,6 +26,8 @@ Swapchain::~Swapchain()
 
 void Swapchain::createSwapchain()
 {
+    VkDevice device = Graphics::getDevice();
+    QueueFamilyIndices indices = Graphics::getQueueFamilyIndices();
     VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapchainSupport.formats);
     VkPresentModeKHR presentMode = chooseSwapPresentMode(swapchainSupport.presentModes);
     std::cout << presentMode << std::endl;

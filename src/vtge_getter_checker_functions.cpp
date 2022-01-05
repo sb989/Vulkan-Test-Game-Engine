@@ -1,16 +1,16 @@
 #include "vtge_getter_and_checker_functions.hpp"
+#include "vtge_graphics.hpp"
 #include <stdexcept>
 #include <set>
 #include <iostream>
 
-extern VkPhysicalDevice physicalDevice;
-extern QueueFamilyIndices indices;
 extern bool enableValidationLayers;
 
 namespace getterChecker
 {
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
     {
+        VkPhysicalDevice physicalDevice = Graphics::getPhysicalDevice();
         VkPhysicalDeviceMemoryProperties memProperties;
         vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
         for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
@@ -35,6 +35,7 @@ namespace getterChecker
     VkSampleCountFlagBits getMaxUsableSampleCount()
     {
         VkPhysicalDeviceProperties physicalDeviceProperties;
+        VkPhysicalDevice physicalDevice = Graphics::getPhysicalDevice();
         vkGetPhysicalDeviceProperties(physicalDevice, &physicalDeviceProperties);
         VkSampleCountFlags counts = physicalDeviceProperties.limits.framebufferColorSampleCounts &
                                     physicalDeviceProperties.limits.framebufferDepthSampleCounts;
@@ -69,6 +70,7 @@ namespace getterChecker
     VkFormat findSupportedFormat(const std::vector<VkFormat> &candidates, VkImageTiling tiling,
                                  VkFormatFeatureFlags features)
     {
+        VkPhysicalDevice physicalDevice = Graphics::getPhysicalDevice();
         for (VkFormat format : candidates)
         {
             VkFormatProperties props;
@@ -95,6 +97,7 @@ namespace getterChecker
         return deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU && 
             deviceFeatures.geometryShader;
         */
+        QueueFamilyIndices indices = Graphics::getQueueFamilyIndices();
         VkPhysicalDeviceProperties deviceProperties;
         vkGetPhysicalDeviceProperties(device, &deviceProperties);
         std::cout << deviceProperties.deviceName << std::endl;

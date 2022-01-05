@@ -36,6 +36,7 @@ public:
     void cleanupMemory();
     void updateUniformBuffers(UniformBufferObject ubo, uint32_t currentImage);
     static glm::mat4 assimpMat4ToGlmMat4(aiMatrix4x4 mat4);
+    static void initMeshSystem();
 
 private:
     static VkDescriptorSetLayout *descriptorSetLayout;
@@ -58,7 +59,7 @@ private:
     void createBufferAndCopy(VkDeviceSize bufferSize, VkBuffer *buffer, VkDeviceMemory *deviceMemory, VkBufferUsageFlags flags, void *pointer);
     void createDescriptorSetLayout();
 
-    void setupDescriptorSetLayout();
+    static void setupDescriptorSetLayout();
 
     void initDescriptorSets(uint32_t imageCount);
 

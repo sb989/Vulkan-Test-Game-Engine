@@ -1,12 +1,13 @@
 #include "vtge_image.hpp"
-#include <stdexcept>
 #include "vtge_getter_and_checker_functions.hpp"
-extern VkDevice device;
+#include "vtge_graphics.hpp"
+#include <stdexcept>
 namespace image
 {
 
     VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels)
     {
+        VkDevice device = Graphics::getDevice();
         VkImageViewCreateInfo viewInfo{};
         viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         viewInfo.image = image;
@@ -31,6 +32,7 @@ namespace image
                      VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties,
                      VkImage &image, VkDeviceMemory &imageMemory)
     {
+        VkDevice device = Graphics::getDevice();
         VkImageCreateInfo imageInfo{};
         imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
         imageInfo.imageType = VK_IMAGE_TYPE_2D;

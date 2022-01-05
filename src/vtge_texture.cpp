@@ -1,17 +1,14 @@
 #include "vtge_texture.hpp"
-#define GLFW_INCLUDE_VULKAN
-#define STB_IMAGE_IMPLEMENTATION
-#include <iostream>
+#include "vtge_buffer_helper_functions.hpp"
+#include "vtge_image.hpp"
+#include "vtge_graphics.hpp"
 #include <GLFW/glfw3.h>
+#include <iostream>
 #include <stb_image.h>
 #include <stdexcept>
 #include <cmath>
-#include "vtge_buffer_helper_functions.hpp"
-#include "vtge_image.hpp"
-extern VkDevice device;
-extern VkPhysicalDevice physicalDevice;
-extern VkCommandBuffer graphicsCommandBuffer, transferCommandBuffer;
-extern VkQueue graphicsQueue, transferQueue;
+#define GLFW_INCLUDE_VULKAN
+#define STB_IMAGE_IMPLEMENTATION
 std::unordered_map<std::string, Texture *> Texture::textureMap{};
 
 Texture::Texture(std::string texturePath)
@@ -32,6 +29,7 @@ Texture::Texture(int height, int width, glm::vec4 color)
 
 Texture::~Texture()
 {
+    VkDevice device = Graphics::getDevice();
     vkDestroySampler(device, textureSampler, nullptr);
     vkDestroyImageView(device, textureImageView, nullptr);
     vkDestroyImage(device, textureImage, nullptr);
@@ -70,6 +68,9 @@ Texture *Texture::createTextureFromColor(std::string colorName, int height, int 
 
 void Texture::createSolidColorTexture(int width, int height, glm::vec4 color)
 {
+    VkDevice device = Graphics::getDevice();
+    VkCommandBuffer graphicsCommandBuffer = Graphics::getGraphicsCommandBuffer(),
+                    transferCommandBuffer = Graphics::getTransferCommandBuffer();
     mipLevels = 1;
     unsigned char pixels[width * height * 4];
     for (int h = 0; h < height; h++)
@@ -112,6 +113,13 @@ void Texture::createSolidColorTexture(int width, int height, glm::vec4 color)
 void Texture::createTextureImage()
 {
     int texWidth, texHeight, texChannels;
+    void *data;
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingBufferMemory;
+    VkDevice device = Graphics::getDevice();
+    VkCommandBuffer graphicsCommandBuffer = Graphics::getGraphicsCommandBuffer(),
+                    transferCommandBuffer = Graphics::getTransferCommandBuffer();
+
     stbi_uc *pixels = stbi_load(texturePath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
     mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
     VkDeviceSize imageSize = texWidth * texHeight * 4;
@@ -121,12 +129,9 @@ void Texture::createTextureImage()
         throw std::runtime_error("failed to load texture image!");
     }
 
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
     buffer::createStagingBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                                 stagingBuffer, stagingBufferMemory);
-    void *data;
     vkMapMemory(device, stagingBufferMemory, 0, imageSize, 0, &data);
     memcpy(data, pixels, static_cast<size_t>(imageSize));
     vkUnmapMemory(device, stagingBufferMemory);
@@ -150,6 +155,7 @@ void Texture::createTextureImage()
 
 void Texture::generateMipmaps(VkImage image, VkFormat imageFormat, VkCommandBuffer commandBuffer, int32_t texWidth, int32_t texHeight, uint32_t mipLevels)
 {
+    VkPhysicalDevice physicalDevice = Graphics::getPhysicalDevice();
     VkFormatProperties formatProperties;
     //check if it supports linear blitting
     vkGetPhysicalDeviceFormatProperties(physicalDevice, imageFormat, &formatProperties);
@@ -234,6 +240,8 @@ void Texture::createTextureImageView()
 
 void Texture::createTextureSampler()
 {
+    VkDevice device = Graphics::getDevice();
+    VkPhysicalDevice physicalDevice = Graphics::getPhysicalDevice();
     VkSamplerCreateInfo samplerInfo{};
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     samplerInfo.magFilter = VK_FILTER_LINEAR;
@@ -261,6 +269,7 @@ void Texture::createTextureSampler()
 
 void Texture::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height)
 {
+    VkCommandBuffer transferCommandBuffer = Graphics::getTransferCommandBuffer();
     VkBufferImageCopy region{};
     region.bufferOffset = 0;
     region.bufferRowLength = 0;

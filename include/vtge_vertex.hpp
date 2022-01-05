@@ -14,20 +14,11 @@ struct Vertex
     glm::vec2 texCoord;
     glm::vec3 normal;
 
-    /**
-     * @brief overloads the == operator to allow comparison between vertexes
-     * @param other the other vertex being compared
-     * @return returns true if the vertexes share the same position, color, and texCoord
-     */
     bool operator==(const Vertex &other) const
     {
         return pos == other.pos && texCoord == other.texCoord && normal == other.normal;
     }
 
-    /**
-     * @brief creates and returns a VkVertexInputBindingDescription 
-     * @return returns a VkVertexInputBindingDescription
-     */
     static VkVertexInputBindingDescription getBindingDescription()
     {
         VkVertexInputBindingDescription bindingDescription{};
@@ -37,10 +28,6 @@ struct Vertex
         return bindingDescription;
     }
 
-    /**
-     * @brief returns the attribute descriptions for a vertex
-     * @return returns an array of the attribute description for each vertex member
-     */
     static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions()
     {
         std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};

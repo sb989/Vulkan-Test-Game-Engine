@@ -6,8 +6,7 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include "vtge_ubo.hpp"
-class Model;
-class Pipeline;
+
 const static int MAX_LIGHT_COUNT = 10000;
 struct DirectionalLightInfo
 {
@@ -44,7 +43,9 @@ struct PointLightInfo
     alignas(16) glm::vec4 specular;
     alignas(16) glm::vec4 ambient;
 };
-
+class Model;
+class Pipeline;
+class Swapchain;
 class Light
 {
 public:
@@ -56,6 +57,17 @@ public:
     Light(std::string modelPath, glm::vec4 lightPos, glm::vec4 direction, uint32_t imageCount,
           glm::vec4 diffuse, glm::vec4 ambient, glm::vec4 specular,
           float constant, float linear, float quadratic, float cutOff, float outerCutOff, std::string colorName);
+
+    static void createPointLight(std::string modelPath, glm::vec3 scale, glm::vec3 rotate, glm::vec4 lightPos,
+                                 glm::vec4 diffuse, glm::vec4 ambient, glm::vec4 specular, float constant, float linear,
+                                 float quadratic, std::string color);
+
+    static void createDirectionalLight(std::string modelPath, glm::vec3 scale, glm::vec3 rotate, glm::vec4 direction, glm::vec4 lightPos,
+                                       glm::vec4 diffuse, glm::vec4 ambient, glm::vec4 specular, std::string color);
+
+    static void createSpotLight(std::string modelPath, glm::vec3 scale, glm::vec3 rotate, glm::vec4 direction, glm::vec4 lightPos,
+                                glm::vec4 diffuse, glm::vec4 ambient, glm::vec4 specular, float constant, float linear, float quadratic,
+                                float cutOff, float outerCutOff, std::string color);
     ~Light();
     static void initLights();
     static void destroyAllLights();

@@ -8,11 +8,7 @@
 #include <optional>
 //#include "vtge_model.hpp"
 #include "vtge_getter_and_checker_functions.hpp"
-class Swapchain;
-class Framebuffer;
-class Pipeline;
-class Object;
-class Model;
+
 const std::vector<const char *> deviceExtensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
@@ -29,7 +25,11 @@ static float cursorXPos, cursorYPos = 0;
 static glm::mat4 viewMat, projectionMat = glm::mat4(0);
 static glm::vec3 lookDir = glm::vec3(0);
 static glm::vec3 camPos = glm::vec3(0);
-
+class Swapchain;
+class Framebuffer;
+class Pipeline;
+class Object;
+class Model;
 class Graphics
 {
 public:
@@ -38,17 +38,37 @@ public:
     ~Graphics();
 
     void drawFrame();
-
     bool framebufferResized = false;
     GLFWwindow *window;
+    static VkCommandBuffer beginSingleTimeCommands(VkCommandPool pool);
+    static void endSingleTimeCommands(VkCommandBuffer commandBuffer, VkCommandPool pool, VkQueue queue);
+    static void beginGraphicsCommandBuffer();
+    static void beginTransferCommandBuffer();
+    static void endGraphicsCommandBuffer();
+    static void endTransferCommandBuffer();
+    static VkDevice getDevice();
+    static Swapchain *getSwapchain();
+    static SwapchainSupportDetails getSwapchainSupport();
+    static Framebuffer *getFramebuffer();
+    static VkInstance getInstance();
+    static Pipeline *getGraphicsPipeline();
+    static Pipeline *getLightPipeline();
+    static VkCommandBuffer getGraphicsCommandBuffer();
+    static VkCommandBuffer getTransferCommandBuffer();
+    static VkQueue getGraphicsQueue();
+    static VkQueue getPresentQueue();
+    static VkQueue getTransferQueue();
+    static VkCommandPool getGraphicsCommandPool();
+    static VkCommandPool getTransferCommandPool();
+    static QueueFamilyIndices getQueueFamilyIndices();
+    static VkSurfaceKHR getSurface();
+    static VkSampleCountFlagBits getMsaaSamples();
+    static VkPhysicalDevice getPhysicalDevice();
 
 private:
     const int MAX_FRAMES_IN_FLIGHT = 2;
     size_t currentFrame = 0;
-    const std::string VIKING_MODEL_PATH = "../models/viking_room.obj";
-    const std::string VIKING_TEXTURE_PATH = "../textures/viking_room.png";
-    const std::string BANANA_MODEL_PATH = "../models/ripe-banana.obj";
-    const std::string BANANA_TEXTURE_PATH = "../textures/ripe-banana_u1_v1.png";
+
     std::string windowTitle = "Vulkan Test Game Engine - FPS: ";
     float frameCount = 0;
 
@@ -58,17 +78,19 @@ private:
     std::vector<VkCommandBuffer> drawCommandBuffers;
     std::vector<VkSemaphore> imageAvailableSemaphores, renderFinishedSemaphores;
     std::vector<VkFence> inFlightFences, imagesInFlight;
-    //std::vector<Model*>             lightList; //modelList
-    Swapchain *swapchain;
-    SwapchainSupportDetails swapchainSupport;
-    Framebuffer *framebuffer;
-    VkInstance instance;
-    VkRenderPass renderPass;
-    Pipeline *graphicsPipeline, *lightPipeline;
-    //VkDescriptorPool                descriptorPool;
+    static Swapchain *swapchain;
+    static SwapchainSupportDetails swapchainSupport;
+    static Framebuffer *framebuffer;
+    static VkInstance instance;
+    static VkRenderPass renderPass;
+    static Pipeline *graphicsPipeline, *lightPipeline;
+    static VkQueue graphicsQueue, presentQueue, transferQueue;
+    static VkCommandPool graphicsCommandPool, transferCommandPool;
+    static QueueFamilyIndices indices;
+    static VkCommandBuffer transferCommandBuffer, graphicsCommandBuffer;
     VkDebugUtilsMessengerEXT debugMessenger;
-    VkSurfaceKHR surface;
-
+    static VkSurfaceKHR surface;
+    static VkDevice device;
     void setUpWindow();
 
     void setUpGraphics();
@@ -107,33 +129,13 @@ private:
 
     void updateUniformBuffer(uint32_t currentImage, Model *m);
 
-    void createObject(std::string modelPath, std::string diffuseMapPath, glm::vec3 translate, glm::vec3 scale, glm::vec3 rotate, std::string specularMapPath = "");
-    void createObject(std::string modelPath, glm::vec4 color, std::string colorName, glm::vec3 translate, glm::vec3 scale, glm::vec3 rotate);
-    void createObject(std::string modelPath, glm::vec3 translate, glm::vec3 scale, glm::vec3 rotate);
-
-    void setObjectTransform(Object *obj, glm::vec3 translate, glm::vec3 scale, glm::vec3 rotate);
-
-    void createPointLight(std::string modelPath, glm::vec3 scale, glm::vec3 rotate, glm::vec4 lightPos,
-                          glm::vec4 diffuse, glm::vec4 ambient, glm::vec4 specular, float constant, float linear, float quadratic, std::string color);
-
-    void createDirectionalLight(std::string modelPath, glm::vec3 scale, glm::vec3 rotate, glm::vec4 direction, glm::vec4 lightPos,
-                                glm::vec4 diffuse, glm::vec4 ambient, glm::vec4 specular, std::string color);
-
-    void createSpotLight(std::string modelPath, glm::vec3 scale, glm::vec3 rotate, glm::vec4 direction, glm::vec4 lightPos,
-                         glm::vec4 diffuse, glm::vec4 ambient, glm::vec4 specular, float constant, float linear, float quadratic,
-                         float cutOff, float outerCutOff, std::string color);
-
     void recreateSwapchain();
 
     void cleanupSwapchain();
 
-    void endSingleTimeCommands(VkCommandBuffer commandBuffer, VkCommandPool pool, VkQueue queue);
-
     static void framebufferResizeCallback(GLFWwindow *window, int width, int height);
 
     QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
-
-    VkCommandBuffer beginSingleTimeCommands(VkCommandPool pool);
 
     SwapchainSupportDetails querySwapchainSupport(VkPhysicalDevice testDevice);
 

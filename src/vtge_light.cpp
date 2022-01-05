@@ -3,10 +3,9 @@
 #include "vtge_swapchain.hpp"
 #include "vtge_pipeline.hpp"
 #include "vtge_descriptor.hpp"
+#include "vtge_graphics.hpp"
 #include "glm/gtx/string_cast.hpp"
 #include <iostream>
-extern VkDevice device;
-//extern VkDescriptorSetLayout descriptorSetLayout;
 static std::vector<Light *> directionalLightList, spotLightList, pointLightList;
 VkDescriptorSetLayout *Light::descriptorSetLayout = nullptr;
 std::vector<VkBuffer> Light::directionalLightBuffers = {0};
@@ -104,6 +103,42 @@ Light::~Light()
     delete m;
 }
 
+void Light::createDirectionalLight(std::string modelPath, glm::vec3 scale, glm::vec3 rotate, glm::vec4 direction, glm::vec4 lightPos,
+                                   glm::vec4 diffuse, glm::vec4 ambient, glm::vec4 specular, std::string colorName)
+{
+    uint32_t imgCount = Graphics::getSwapchain()->swapchainImages.size();
+    Light *l = new Light(modelPath, lightPos, direction, imgCount, diffuse, ambient, specular, colorName);
+    l->getModel()->rotateModel(rotate);
+    l->getModel()->scaleModel(scale);
+    l->getModel()->setRotation(rotate / 40.0f);
+    //lightList.push_back(m);
+}
+
+void Light::createPointLight(std::string modelPath, glm::vec3 scale, glm::vec3 rotate, glm::vec4 lightPos,
+                             glm::vec4 diffuse, glm::vec4 ambient, glm::vec4 specular, float constant,
+                             float linear, float quadratic, std::string colorName)
+{
+    uint32_t imgCount = Graphics::getSwapchain()->swapchainImages.size();
+    Light *l = new Light(modelPath, lightPos, imgCount, diffuse, ambient,
+                         specular, constant, linear, quadratic, colorName);
+    l->getModel()->rotateModel(rotate);
+    l->getModel()->scaleModel(scale);
+    l->getModel()->setRotation(rotate / 40.0f);
+    //lightList.push_back(m);
+}
+
+void Light::createSpotLight(std::string modelPath, glm::vec3 scale, glm::vec3 rotate, glm::vec4 direction, glm::vec4 lightPos,
+                            glm::vec4 diffuse, glm::vec4 ambient, glm::vec4 specular, float constant, float linear, float quadratic,
+                            float cutOff, float outerCutOff, std::string colorName)
+{
+    uint32_t imgCount = Graphics::getSwapchain()->swapchainImages.size();
+    Light *l = new Light(modelPath, lightPos, direction, imgCount, diffuse, ambient,
+                         specular, constant, linear, quadratic, cutOff, outerCutOff, colorName);
+    l->getModel()->rotateModel(rotate);
+    l->getModel()->scaleModel(scale);
+    l->getModel()->setRotation(rotate / 40.0f);
+}
+
 void Light::setupDescriptorSetLayout()
 {
     auto directionalLayoutBinding = Descriptor::createDescriptorSetLayoutBinding(
@@ -176,6 +211,7 @@ void Light::updateDirectionalLightBuffer(uint32_t currentImage, glm::mat4 projec
 {
     void *data;
     int lightCount = (int)lightList.size();
+    VkDevice device = Graphics::getDevice();
     VkDeviceMemory bufferMemory = lightBuffersMemory[currentImage];
     vkMapMemory(device, bufferMemory, 0, 16 + sizeof(DirectionalLightInfo) * lightList.size(), 0, &data);
     memcpy(data, &(lightCount), sizeof(int));
@@ -197,6 +233,7 @@ void Light::updatePointLightBuffer(uint32_t currentImage, glm::mat4 projection, 
 {
     void *data;
     int lightCount = (int)lightList.size();
+    VkDevice device = Graphics::getDevice();
     VkDeviceMemory bufferMemory = lightBuffersMemory[currentImage];
     vkMapMemory(device, bufferMemory, 0, 16 + sizeof(PointLightInfo) * lightList.size(), 0, &data);
     memcpy(data, &(lightCount), sizeof(int));
@@ -222,6 +259,7 @@ void Light::updateSpotLightBuffer(uint32_t currentImage, glm::mat4 projection, g
 {
     void *data;
     int lightCount = (int)lightList.size();
+    VkDevice device = Graphics::getDevice();
     VkDeviceMemory bufferMemory = lightBuffersMemory[currentImage];
     vkMapMemory(device, bufferMemory, 0, 16 + sizeof(SpotLightInfo) * lightList.size(), 0, &data);
     memcpy(data, &(lightCount), sizeof(int));
@@ -354,6 +392,7 @@ VkDeviceSize Light::getDirectionalLightBufferSize()
 
 void Light::destroyDescriptorSetLayout()
 {
+    VkDevice device = Graphics::getDevice();
     vkDestroyDescriptorSetLayout(device, *descriptorSetLayout, nullptr);
     delete (descriptorSetLayout);
 }
@@ -380,6 +419,7 @@ void Light::destroyAllLights()
 
 void Light::destroyLightBufferAndMemory(size_t imageCount, std::vector<VkBuffer> buffer, std::vector<VkDeviceMemory> memory)
 {
+    VkDevice device = Graphics::getDevice();
     for (size_t j = 0; j < imageCount; j++)
     {
         vkDestroyBuffer(device, buffer[j], nullptr);
@@ -391,6 +431,7 @@ void Light::destroyLightBufferAndMemory(size_t imageCount, std::vector<VkBuffer>
 
 void Light::cleanupMemory()
 {
+    VkDevice device = Graphics::getDevice();
     std::cout << "cleaning up model memory" << std::endl;
     for (int i = 0; i < directionalLightList.size(); i++)
     {

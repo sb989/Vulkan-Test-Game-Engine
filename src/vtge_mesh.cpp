@@ -1,12 +1,12 @@
 #include "vtge_mesh.hpp"
-#include <vtge_descriptor.hpp>
+#include "vtge_descriptor.hpp"
 #include "vtge_buffer_helper_functions.hpp"
 #include "vtge_ubo.hpp"
-#include <cstring>
 #include "vtge_texture.hpp"
 #include "vtge_light.hpp"
+#include "vtge_graphics.hpp"
+#include <cstring>
 
-extern VkDevice device;
 VkDescriptorSetLayout *Mesh::descriptorSetLayout = nullptr;
 
 Mesh::Mesh(std::vector<Vertex> vertices, std::vector<uint32_t> indices, std::vector<Texture *> diffuseMap, std::vector<Texture *> specularMap, uint32_t imageCount, Node *n)
@@ -26,12 +26,7 @@ Mesh::Mesh(std::vector<Vertex> vertices, std::vector<uint32_t> indices, std::vec
 
 Mesh::~Mesh()
 {
-    // for(int i = 0; i < diffuseMap.size(); i++){
-    //     delete diffuseMap[i];
-    // }
-    // for(int i = 0; i < specularMap.size(); i++){
-    //     delete specularMap[i];
-    // }
+    VkDevice device = Graphics::getDevice();
     vkDestroyBuffer(device, indexBuffer, nullptr);
     vkFreeMemory(device, indexBufferMemory, nullptr);
     vkDestroyBuffer(device, vertexBuffer, nullptr);
@@ -39,11 +34,15 @@ Mesh::~Mesh()
     delete node;
 }
 
+void Mesh::initMeshSystem()
+{
+    setupDescriptorSetLayout();
+}
+
 void Mesh::drawMesh(std::vector<VkDescriptorSet> combinedDescriptorSets, VkCommandBuffer *commandBuffer, VkPipelineLayout pipelineLayout, int index)
 {
     VkBuffer vertexBuffers[] = {vertexBuffer};
     VkDeviceSize offsets[] = {0};
-    //VkDescriptorSet combindedDescriptorSets [2] = {(*descriptorSets)[index], (*Light::getDescriptorSets())[index]};
     combinedDescriptorSets.insert(combinedDescriptorSets.begin(), (*descriptorSets)[index]);
     vkCmdBindVertexBuffers(*commandBuffer, 0, 1, vertexBuffers, offsets);
     vkCmdBindIndexBuffer(*commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
@@ -76,10 +75,6 @@ glm::mat4 Mesh::assimpMat4ToGlmMat4(aiMatrix4x4 aiMat)
 
 void Mesh::initDescriptorSets(uint32_t imageCount)
 {
-    if (!descriptorSetLayout)
-    {
-        setupDescriptorSetLayout();
-    }
     createDescriptorBuffers();
     createDescriptorPool();
     createDescriptorSets();
@@ -101,7 +96,6 @@ void Mesh::createDescriptorPool()
 
 void Mesh::setupDescriptorSetLayout()
 {
-
     auto uboLayoutBinding = Descriptor::createDescriptorSetLayoutBinding(
         0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr);
     auto samplerLayoutBinding = Descriptor::createDescriptorSetLayoutBinding(
@@ -170,6 +164,7 @@ void Mesh::createBufferAndCopy(VkDeviceSize bufferSize, VkBuffer *buffer, VkDevi
 {
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
+    VkDevice device = Graphics::getDevice();
     buffer::createStagingBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
                                 stagingBuffer, stagingBufferMemory);
@@ -205,6 +200,7 @@ void Mesh::recreateUBufferPoolSets(uint32_t imageCount)
 
 void Mesh::updateMaterial(Material mat)
 {
+    VkDevice device = Graphics::getDevice();
     for (int currentImage = 0; currentImage < imageCount; currentImage++)
     {
         void *data;
@@ -216,12 +212,14 @@ void Mesh::updateMaterial(Material mat)
 
 void Mesh::destroyDescriptorSetLayout()
 {
+    VkDevice device = Graphics::getDevice();
     vkDestroyDescriptorSetLayout(device, *descriptorSetLayout, nullptr);
     delete (descriptorSetLayout);
 }
 
 void Mesh::cleanupMemory()
 {
+    VkDevice device = Graphics::getDevice();
     for (size_t j = 0; j < imageCount; j++)
     {
         vkDestroyBuffer(device, uniformBuffers[j], nullptr);
@@ -237,6 +235,7 @@ void Mesh::cleanupMemory()
 void Mesh::updateUniformBuffers(UniformBufferObject ubo, uint32_t currentImage)
 {
     void *data;
+    VkDevice device = Graphics::getDevice();
     ubo.modelView = ubo.modelView * getMeshTransform();
     vkMapMemory(device, uniformBuffersMemory[currentImage], 0, sizeof(ubo), 0, &data);
     memcpy(data, &ubo, sizeof(ubo));
