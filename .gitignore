@@ -3,8 +3,6 @@ VulkanTest
 models/*
 textures/*
 VulkanTest.exe
-*.sln
-*.vcxproj*
 .vs/
 out/
 CppProperties.json
