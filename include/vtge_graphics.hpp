@@ -1,13 +1,12 @@
 #ifndef __VTGE_GRAPHICS_HPP__
 #define __VTGE_GRAPHICS_HPP__
 #define GLFW_INCLUDE_VULKAN
-#include <string>
-#include <GLFW/glfw3.h>
-#include <vector>
 #include "vtge_vertex.hpp"
-#include <optional>
-//#include "vtge_model.hpp"
 #include "vtge_getter_and_checker_functions.hpp"
+#include <GLFW/glfw3.h>
+#include <string>
+#include <vector>
+#include <optional>
 
 const std::vector<const char *> deviceExtensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME};
@@ -19,17 +18,13 @@ struct PushConstants
 {
     alignas(16) glm::mat4 normMatrix;
 };
-static float camXPos, camYPos, camZPos = 0;
-static float oldCamYaw, oldCamPitch, camYaw, camPitch = 0;
-static float cursorXPos, cursorYPos = 0;
-static glm::mat4 viewMat, projectionMat = glm::mat4(0);
-static glm::vec3 lookDir = glm::vec3(0);
-static glm::vec3 camPos = glm::vec3(0);
+
 class Swapchain;
 class Framebuffer;
 class Pipeline;
 class Object;
 class Model;
+class Camera;
 class Graphics
 {
 public:
@@ -79,6 +74,7 @@ private:
     std::vector<VkSemaphore> imageAvailableSemaphores, renderFinishedSemaphores;
     std::vector<VkFence> inFlightFences, imagesInFlight;
     static Swapchain *swapchain;
+    static Camera *cam;
     static SwapchainSupportDetails swapchainSupport;
     static Framebuffer *framebuffer;
     static VkInstance instance;

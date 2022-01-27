@@ -2,6 +2,7 @@
 #include "vtge_image.hpp"
 #include "vtge_getter_and_checker_functions.hpp"
 #include "vtge_graphics.hpp"
+#include <algorithm>
 #include <stdexcept>
 #include <iostream>
 

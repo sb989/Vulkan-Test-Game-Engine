@@ -6,7 +6,6 @@ struct UniformBufferObject
 {
     alignas(16) glm::mat4 normMatrix;
     alignas(16) glm::mat4 modelView;
-    alignas(16) glm::mat4 view;
     alignas(16) glm::mat4 proj;
 };
 

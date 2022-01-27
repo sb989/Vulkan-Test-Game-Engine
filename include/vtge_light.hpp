@@ -62,10 +62,10 @@ public:
                                  glm::vec4 diffuse, glm::vec4 ambient, glm::vec4 specular, float constant, float linear,
                                  float quadratic, std::string color);
 
-    static void createDirectionalLight(std::string modelPath, glm::vec3 scale, glm::vec3 rotate, glm::vec4 direction, glm::vec4 lightPos,
+    static void createDirectionalLight(std::string modelPath, glm::vec3 scale, glm::vec3 rotate, glm::vec3 direction, glm::vec4 lightPos,
                                        glm::vec4 diffuse, glm::vec4 ambient, glm::vec4 specular, std::string color);
 
-    static void createSpotLight(std::string modelPath, glm::vec3 scale, glm::vec3 rotate, glm::vec4 direction, glm::vec4 lightPos,
+    static void createSpotLight(std::string modelPath, glm::vec3 scale, glm::vec3 rotate, glm::vec3 direction, glm::vec4 lightPos,
                                 glm::vec4 diffuse, glm::vec4 ambient, glm::vec4 specular, float constant, float linear, float quadratic,
                                 float cutOff, float outerCutOff, std::string color);
     ~Light();
@@ -90,6 +90,7 @@ public:
     static VkDeviceSize getDirectionalLightBufferSize();
     static Light *getDirectionalLight(uint32_t i);
     static Light *getPointLight(uint32_t i);
+    static Light *getSpotLight(uint32_t i);
     static void setImageCount(uint32_t);
 
 private:

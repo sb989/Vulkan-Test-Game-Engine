@@ -75,6 +75,7 @@ Light::Light(std::string modelPath, glm::vec4 lightPos, glm::vec4 direction, uin
     this->quadratic = quadratic;
     this->cutOff = cutOff;
     this->outerCutOff = outerCutOff;
+    this->direction = direction;
     //Descriptor::createDescriptorBuffer(sizeof(UniformBufferObject), &uniformBuffers, &uniformBuffersMemory, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, imageCount);
     if (!descriptorSetLayout)
     {
@@ -103,11 +104,11 @@ Light::~Light()
     delete m;
 }
 
-void Light::createDirectionalLight(std::string modelPath, glm::vec3 scale, glm::vec3 rotate, glm::vec4 direction, glm::vec4 lightPos,
+void Light::createDirectionalLight(std::string modelPath, glm::vec3 scale, glm::vec3 rotate, glm::vec3 direction, glm::vec4 lightPos,
                                    glm::vec4 diffuse, glm::vec4 ambient, glm::vec4 specular, std::string colorName)
 {
     uint32_t imgCount = Graphics::getSwapchain()->swapchainImages.size();
-    Light *l = new Light(modelPath, lightPos, direction, imgCount, diffuse, ambient, specular, colorName);
+    Light *l = new Light(modelPath, lightPos, glm::vec4(direction, 0), imgCount, diffuse, ambient, specular, colorName);
     l->getModel()->rotateModel(rotate);
     l->getModel()->scaleModel(scale);
     l->getModel()->setRotation(rotate / 40.0f);
@@ -127,12 +128,12 @@ void Light::createPointLight(std::string modelPath, glm::vec3 scale, glm::vec3 r
     //lightList.push_back(m);
 }
 
-void Light::createSpotLight(std::string modelPath, glm::vec3 scale, glm::vec3 rotate, glm::vec4 direction, glm::vec4 lightPos,
+void Light::createSpotLight(std::string modelPath, glm::vec3 scale, glm::vec3 rotate, glm::vec3 direction, glm::vec4 lightPos,
                             glm::vec4 diffuse, glm::vec4 ambient, glm::vec4 specular, float constant, float linear, float quadratic,
                             float cutOff, float outerCutOff, std::string colorName)
 {
     uint32_t imgCount = Graphics::getSwapchain()->swapchainImages.size();
-    Light *l = new Light(modelPath, lightPos, direction, imgCount, diffuse, ambient,
+    Light *l = new Light(modelPath, lightPos, glm::vec4(direction,0) , imgCount, diffuse, ambient,
                          specular, constant, linear, quadratic, cutOff, outerCutOff, colorName);
     l->getModel()->rotateModel(rotate);
     l->getModel()->scaleModel(scale);
@@ -224,7 +225,7 @@ void Light::updateDirectionalLightBuffer(uint32_t currentImage, glm::mat4 projec
         lightData[i].ambient = lightList[i]->ambient;
         lightData[i].diffuse = lightList[i]->diffuse;
         lightData[i].specular = lightList[i]->specular;
-        lightData[i].direction = lightList[i]->direction;
+        lightData[i].direction = view * lightList[i]->direction;
     }
     vkUnmapMemory(device, bufferMemory);
 }
@@ -244,7 +245,7 @@ void Light::updatePointLightBuffer(uint32_t currentImage, glm::mat4 projection, 
     {
         lightList[i]->m->updateModelMat(currentImage, projection, view);
         lightList[i]->lightPos = lightList[i]->m->getModelPos();
-        lightData[i].lightpos = lightList[i]->lightPos;
+        lightData[i].lightpos = view * lightList[i]->lightPos;
         lightData[i].ambient = lightList[i]->ambient;
         lightData[i].diffuse = lightList[i]->diffuse;
         lightData[i].specular = lightList[i]->specular;
@@ -270,14 +271,14 @@ void Light::updateSpotLightBuffer(uint32_t currentImage, glm::mat4 projection, g
     {
         lightList[i]->m->updateModelMat(currentImage, projection, view);
         lightList[i]->lightPos = lightList[i]->m->getModelPos();
-        lightData[i].lightpos = lightList[i]->lightPos;
+        lightData[i].lightpos = view * lightList[i]->lightPos;
         lightData[i].ambient = lightList[i]->ambient;
         lightData[i].diffuse = lightList[i]->diffuse;
         lightData[i].specular = lightList[i]->specular;
         lightData[i].constant = lightList[i]->constant;
         lightData[i].linear = lightList[i]->linear;
         lightData[i].quadratic = lightList[i]->quadratic;
-        lightData[i].direction = lightList[i]->direction;
+        lightData[i].direction = view * lightList[i]->direction;
         lightData[i].cutOff = lightList[i]->cutOff;
         lightData[i].outerCutOff = lightList[i]->outerCutOff;
     }
@@ -371,6 +372,14 @@ Light *Light::getPointLight(uint32_t i)
 {
     if (pointLightList.size() > i)
         return pointLightList[i];
+    else
+        return nullptr;
+}
+
+Light *Light::getSpotLight(uint32_t i )
+{
+    if(spotLightList.size() > i)
+        return spotLightList[i];
     else
         return nullptr;
 }

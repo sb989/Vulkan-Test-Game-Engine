@@ -35,7 +35,7 @@ public:
     Model(std::string modelPath, uint32_t imageCount, std::string diffuseMapPath = "", std::string specularMapPath = "", glm::vec4 color = {-1, -1, -1, -1}, std::string colorName = "");
 
     ~Model();
-    glm::mat4 getModelMat() { return modelMat; }
+    glm::mat4 getModelMat();
     glm::vec4 getModelPos();
 
     void updateModelMat(uint32_t currentImage, glm::mat4 projection, glm::mat4 view);

@@ -210,7 +210,6 @@ void Model::updateModelMat(uint32_t currentImage, glm::mat4 projection, glm::mat
     UniformBufferObject ubo{};
     ubo.modelView = view * getModelMat();
     ubo.proj = projection;
-    ubo.view = view;
     ubo.normMatrix = transpose(inverse(ubo.modelView));
     for (int i = 0; i < meshes.size(); i++)
     {
@@ -221,6 +220,11 @@ void Model::updateModelMat(uint32_t currentImage, glm::mat4 projection, glm::mat
 glm::vec4 Model::getModelPos()
 {
     return glm::vec4(modelMat[3][0], modelMat[3][1], modelMat[3][2], 1);
+}
+
+glm::mat4 Model::getModelMat()
+{
+    return modelMat;
 }
 
 void Model::cleanupMemory()

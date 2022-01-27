@@ -1,3 +1,5 @@
+#define GLFW_INCLUDE_VULKAN
+#define STB_IMAGE_IMPLEMENTATION
 #include "vtge_texture.hpp"
 #include "vtge_buffer_helper_functions.hpp"
 #include "vtge_image.hpp"
@@ -7,8 +9,6 @@
 #include <stb_image.h>
 #include <stdexcept>
 #include <cmath>
-#define GLFW_INCLUDE_VULKAN
-#define STB_IMAGE_IMPLEMENTATION
 std::unordered_map<std::string, Texture *> Texture::textureMap{};
 
 Texture::Texture(std::string texturePath)
@@ -72,7 +72,7 @@ void Texture::createSolidColorTexture(int width, int height, glm::vec4 color)
     VkCommandBuffer graphicsCommandBuffer = Graphics::getGraphicsCommandBuffer(),
                     transferCommandBuffer = Graphics::getTransferCommandBuffer();
     mipLevels = 1;
-    unsigned char pixels[width * height * 4];
+    unsigned char *pixels = new unsigned char [width * height * 4]();
     for (int h = 0; h < height; h++)
     {
         for (int w = 0; w < width; w++)

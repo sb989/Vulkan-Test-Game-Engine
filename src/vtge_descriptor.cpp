@@ -18,7 +18,6 @@ namespace Descriptor
         }
         return descriptorSetLayout;
     }
-
     VkDescriptorPool *createDescriptorPool(uint32_t imageCount, std::vector<VkDescriptorPoolSize> poolSizes)
     {
         VkDevice device = Graphics::getDevice();
