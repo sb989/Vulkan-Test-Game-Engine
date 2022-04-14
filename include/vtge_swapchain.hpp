@@ -1,15 +1,14 @@
 #ifndef __VTGE_SWAPCHAIN_HPP__
-#define __VTGE_SWAPCHAIN_HPP
+#define __VTGE_SWAPCHAIN_HPP__
 #define GLFW_INCLUDE_VULKAN
 #include <vector>
 #include <GLFW/glfw3.h>
-#include "vtge_getter_and_checker_functions.hpp"
 struct SwapchainSupportDetails;
 
 class Swapchain
 {
 public:
-     Swapchain(VkSurfaceKHR *surface, GLFWwindow *window, SwapchainSupportDetails swapchainSupport);
+     Swapchain(VkSurfaceKHR *surface, GLFWwindow *window, SwapchainSupportDetails *swapchainSupport);
 
      ~Swapchain();
 
@@ -27,7 +26,7 @@ public:
      VkExtent2D swapchainExtent;
 
 private:
-     SwapchainSupportDetails swapchainSupport;
+     SwapchainSupportDetails *swapchainSupport;
      VkSurfaceKHR *surface;
      GLFWwindow *window;
 

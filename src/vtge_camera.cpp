@@ -4,7 +4,6 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include "vtge_camera.hpp"
 #include "vtge_graphics.hpp"
-#include "vtge_swapchain.hpp"
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -14,7 +13,7 @@ Camera::Camera(float width, float height)
     cursorXPos = cursorYPos = 0.0f;
     camPos = glm::vec3(camXPos, camYPos, camZPos);
     lookDir = glm::vec3(0.0f, 0.0f, -1.0f);
-    viewMat = glm::lookAt(glm::vec3(camXPos, camYPos, camZPos), lookDir + camPos, glm::vec3(0.0f, 1.0f, 0.0f));
+    viewMat = glm::lookAtLH(glm::vec3(camXPos, camYPos, camZPos), lookDir + camPos, glm::vec3(0.0f, 1.0f, 0.0f));
     projectionMat = glm::perspective(glm::radians(45.0f), width / height, 0.1f, 400.0f);
     camYaw = camPitch = oldCamPitch = oldCamYaw = 0.0f;
 }
@@ -43,13 +42,13 @@ void Camera::handleKeyPress(GLFWwindow *window)
 
     if (left_state == GLFW_PRESS || left_state == GLFW_REPEAT && right_state != GLFW_REPEAT)
     {
-        camXPos -= .3f * lookDir.z;
-        camZPos += .3f * lookDir.x;
+        camXPos += .3f * lookDir.z;
+        camZPos -= .3f * lookDir.x;
     }
     else if (right_state == GLFW_PRESS || right_state == GLFW_REPEAT && left_state != GLFW_REPEAT)
     {
-        camXPos += .3f * lookDir.z;
-        camZPos -= .3f * lookDir.x;
+        camXPos -= .3f * lookDir.z;
+        camZPos += .3f * lookDir.x;
     }
 
     if (esc_state == GLFW_PRESS || esc_state == GLFW_REPEAT && enter_state != GLFW_REPEAT)
@@ -85,7 +84,7 @@ void Camera::handleMouse(GLFWwindow *window)
     {
         float xdiff = x_pos - cursorXPos;
         float ydiff = y_pos - cursorYPos;
-        camYaw += xdiff * .05;
+        camYaw -= xdiff * .05;
         camPitch += ydiff * .05;
         cursorXPos = x_pos;
         cursorYPos = y_pos;
@@ -94,9 +93,8 @@ void Camera::handleMouse(GLFWwindow *window)
 
 void Camera::updateCamera()
 {
-    //i used quaterions becuz i was curious how they worked
-    //probably could have done it with less code if i didnt create my own lookat matrix
-    //or if i didnt use quaterions
+    // i used quaterions becuz i was curious how they worked
+    // probably could have done it with less code if i didnt use quaterions
     glm::quat rotateQuat;
     if (lookDir.y <= -0.9 && camPitch < oldCamPitch || lookDir.y >= 0.9 && camPitch > oldCamPitch)
     {
@@ -113,11 +111,12 @@ void Camera::updateCamera()
     glm::vec3 newCamRight = glm::normalize(glm::cross(worldup, lookDir));
     glm::vec3 newCamUp = glm::normalize(glm::cross(newCamRight, lookDir));
 
-    viewMat = glm::mat4(
-        glm::vec4(newCamRight.x, newCamUp.x, lookDir.x, 0),
-        glm::vec4(newCamRight.y, newCamUp.y, lookDir.y, 0),
-        glm::vec4(newCamRight.z, newCamUp.z, lookDir.z, 0),
-        glm::vec4(-dot(newCamRight, camPos), -dot(newCamUp, camPos), -dot(lookDir, camPos), 1));
+    // viewMat = glm::mat4(
+    //     glm::vec4(newCamRight.x, newCamUp.x, lookDir.x, 0),
+    //     glm::vec4(newCamRight.y, newCamUp.y, lookDir.y, 0),
+    //     glm::vec4(newCamRight.z, newCamUp.z, lookDir.z, 0),
+    //     glm::vec4(-dot(newCamRight, camPos), -dot(newCamUp, camPos), -dot(lookDir, camPos), 1));
+    viewMat = glm::lookAtLH(camPos, camPos + lookDir, newCamUp);
     oldCamPitch = camPitch;
     oldCamYaw = camYaw;
 }

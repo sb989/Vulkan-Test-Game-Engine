@@ -6,7 +6,7 @@
 #include <stdexcept>
 #include <iostream>
 
-Swapchain::Swapchain(VkSurfaceKHR *surface, GLFWwindow *window, SwapchainSupportDetails swapchainSupport)
+Swapchain::Swapchain(VkSurfaceKHR *surface, GLFWwindow *window, SwapchainSupportDetails *swapchainSupport)
 {
     this->surface = surface;
     this->window = window;
@@ -29,15 +29,15 @@ void Swapchain::createSwapchain()
 {
     VkDevice device = Graphics::getDevice();
     QueueFamilyIndices indices = Graphics::getQueueFamilyIndices();
-    VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapchainSupport.formats);
-    VkPresentModeKHR presentMode = chooseSwapPresentMode(swapchainSupport.presentModes);
+    VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapchainSupport->formats);
+    VkPresentModeKHR presentMode = chooseSwapPresentMode(swapchainSupport->presentModes);
     std::cout << presentMode << std::endl;
-    VkExtent2D extent = chooseSwapExtent(swapchainSupport.capabilities);
-    uint32_t imageCount = swapchainSupport.capabilities.minImageCount + 1;
-    if (swapchainSupport.capabilities.maxImageCount > 0 &&
-        imageCount > swapchainSupport.capabilities.maxImageCount)
+    VkExtent2D extent = chooseSwapExtent(swapchainSupport->capabilities);
+    uint32_t imageCount = swapchainSupport->capabilities.minImageCount + 1;
+    if (swapchainSupport->capabilities.maxImageCount > 0 &&
+        imageCount > swapchainSupport->capabilities.maxImageCount)
     {
-        imageCount = swapchainSupport.capabilities.maxImageCount;
+        imageCount = swapchainSupport->capabilities.maxImageCount;
     }
     VkSwapchainCreateInfoKHR createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
@@ -62,7 +62,7 @@ void Swapchain::createSwapchain()
         createInfo.queueFamilyIndexCount = 0;
         createInfo.pQueueFamilyIndices = nullptr;
     }
-    createInfo.preTransform = swapchainSupport.capabilities.currentTransform;
+    createInfo.preTransform = swapchainSupport->capabilities.currentTransform;
     createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
     createInfo.presentMode = presentMode;
     createInfo.clipped = VK_TRUE;

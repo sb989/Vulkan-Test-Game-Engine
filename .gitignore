@@ -13,3 +13,11 @@ CppProperties.json
 *.recipe
 *.tlog
 src/assimp-vc140-mt.dll
+*.dds
+*.csv
+src/with_model_mat.jpg
+src/without_mesh_trans.png
+src/without_model_mat.jpg
+src/imag1.png
+src/imag2.png
+src/with_mesh_trans.png

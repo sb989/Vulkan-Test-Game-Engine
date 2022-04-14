@@ -1,9 +1,10 @@
 #version 460
 layout(location = 0) out vec4 outColor;
+layout(location = 1) out vec4 outDepth;
 layout(location = 1) in vec2 fragTexCoord;
 layout(location = 2) in vec4 fragNormal;
 layout(location = 3) in vec3 fragPos;
-
+layout(location = 4) in vec3 shadowFragPos;
 struct SpotLightInfo{
     float constant;
     float linear;
@@ -15,6 +16,7 @@ struct SpotLightInfo{
     vec4 diffuse;
     vec4 specular;
     vec4 ambient;
+    mat4 lightView;
 };
 
 struct PointLightInfo{
@@ -32,7 +34,16 @@ struct DirectionalLightInfo{
     vec4 specular;
     vec4 ambient;
     vec4 direction;
+    mat4 lightView;
+    mat4 lightProj;
 };
+
+layout(set = 0, binding = 1) uniform sampler2D texSampler;// diffuse map/texture
+layout(set = 0, binding = 2) uniform sampler2D specSampler;
+
+layout(set = 0, binding = 3) uniform Material{
+    float shininess;
+}material;
 
 layout(std140, set = 1, binding = 0) readonly buffer DirectionalLightBuffer{
     int numLights;
@@ -49,25 +60,41 @@ layout(std140, set = 1, binding = 2) readonly buffer PointLightBuffer{
     PointLightInfo lights[];
 } pointLightBuffer;
 
+layout(set = 2, binding = 0) uniform sampler2DArray shadowMap;
 
-layout(set = 0, binding = 1) uniform sampler2D texSampler;// diffuse map/texture
-layout(set = 0, binding = 2) uniform sampler2D specSampler;
 
-layout(set = 0, binding =3) uniform Material{
-    float shininess;
-}material;
 
-vec3 calcDirLight(DirectionalLightInfo light, vec3 normal, vec4 objColor, vec4 objSpec);
+vec3 calcDirLight(DirectionalLightInfo light, vec3 normal, vec4 objColor, vec4 objSpec, uint index);
 vec3 calcPointLight(PointLightInfo light, vec3 normal, vec4 objColor, vec4 objSpec);
 vec3 calcSpotLight(SpotLightInfo light, vec3 normal, vec4 objColor, vec4 objSpec);
+float shadowCalculations(vec4 fragPosLightSpace, float index);
+
+float shadowCalculations(vec4 fragPosLightSpace, float index)
+{
+    float shadow = 0.0;
+    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+    projCoords = projCoords * 0.5 + 0.5;
+    float closestDepth = texture(shadowMap, vec3(projCoords.xy, index)).x;
+    float currentDepth = projCoords.z;
+    //greater value means closer to white
+    if(currentDepth > closestDepth)
+    {
+        shadow = 1.0;
+        outDepth = vec4(vec3(closestDepth, 0, 0), 1.0);
+    }
+    else
+        outDepth = vec4(vec3(0,currentDepth, 0), 1.0);
+    return shadow;
+}
 void main() {
     vec4 objColor = texture(texSampler, fragTexCoord);
     vec4 objSpec = texture(specSampler, fragTexCoord);
     vec3 norm = normalize(vec3(fragNormal));
     vec3 colorSum = vec3(0);
+
     for(int i = 0; i < directionalLightBuffer.numLights; i++){
         DirectionalLightInfo dirLight = directionalLightBuffer.lights[i];
-        colorSum += calcDirLight(dirLight, norm, objColor, objSpec);
+        colorSum += calcDirLight(dirLight, norm, objColor, objSpec, i);
     }
     for(int i = 0; i < pointLightBuffer.numLights; i++){
         PointLightInfo pointLight = pointLightBuffer.lights[i];
@@ -77,10 +104,17 @@ void main() {
         SpotLightInfo spotLight = spotLightBuffer.lights[i];
         colorSum += calcSpotLight(spotLight, norm, objColor, objSpec);
     }
-    outColor = vec4(colorSum,1.0);
+    outColor = outDepth;//vec4(colorSum,1.0);
+    // vec4 fragPosLightSpace = (directionalLightBuffer.lights[0].lightView * shadowFragPos);
+    // vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+    // projCoords = projCoords * 0.5 + 0.5;
+    // outColor = vec4(projCoords.z);
 }
 
-vec3 calcDirLight(DirectionalLightInfo light, vec3 normal, vec4 objColor, vec4 objSpec){
+vec3 calcDirLight(DirectionalLightInfo light, vec3 normal, vec4 objColor, vec4 objSpec, uint index){
+    vec4 fragPosLightSpace = light.lightView * vec4(shadowFragPos,1.0);
+    float shadow = shadowCalculations(fragPosLightSpace, index);
+
     vec3 dirToLight = normalize((vec3(-light.direction)));
     //viewDir = viewPos - fragPos, but camera is always at the origin 
     // in view space, so it becomes viewDir = -fragPos
@@ -92,8 +126,8 @@ vec3 calcDirLight(DirectionalLightInfo light, vec3 normal, vec4 objColor, vec4 o
     // combine results
     vec3 amb = vec3(light.ambient);
     vec3 ambient  = amb * vec3(objColor);
-    vec3 diffuse  = vec3(light.diffuse  * (diff * objColor));
-    vec3 specular = vec3(light.specular * (spec * objSpec));
+    vec3 diffuse  = vec3((light.diffuse + vec4(shadow, 0, 0, 0))  * (diff * objColor));
+    vec3 specular = vec3((light.specular + vec4(shadow, 0, 0, 0)) * (spec * objSpec));
     
     vec3 result = ambient + diffuse + specular;
     return result;

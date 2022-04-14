@@ -1,5 +1,5 @@
 #ifndef __VTGE_DESCRIPTOR_HPP__
-#define __VTGE_DESCROPTOR_HPP__
+#define __VTGE_DESCRIPTOR_HPP__
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <vector>
@@ -11,6 +11,7 @@ struct VtgeBufferInfo
     VkDeviceSize range;
     uint32_t binding;
     VkDescriptorType type;
+    uint32_t descriptorCount;
 };
 
 struct VtgeImageInfo
@@ -20,6 +21,7 @@ struct VtgeImageInfo
     VkSampler sampler;
     uint32_t binding;
     VkDescriptorType type;
+    uint32_t descriptorCount;
 };
 
 namespace Descriptor

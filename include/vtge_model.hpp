@@ -37,13 +37,14 @@ public:
     ~Model();
     glm::mat4 getModelMat();
     glm::vec4 getModelPos();
+    std::string getModelPath();
 
     void updateModelMat(uint32_t currentImage, glm::mat4 projection, glm::mat4 view);
 
     void setVelocity(glm::vec3 vel) { velocity = vel; }
 
     void setRotation(glm::vec3 rot) { rotation = rot; }
-
+    std::vector<Mesh *> getMeshList();
     void moveModel(glm::vec3 changeInPos);
     void scaleModel(glm::vec3 factor);
     void rotateModel(glm::vec3 rotation);

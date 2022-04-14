@@ -14,30 +14,35 @@ struct SwapchainSupportDetails
     std::vector<VkPresentModeKHR> presentModes;
     VkSurfaceCapabilitiesKHR capabilities;
 };
-namespace getterChecker
+struct getterChecker
 {
-    //finds the memory type needed for the properties provided. filter removes memory types not needed
-    uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
+    static float SHADOW_MAP_HEIGHT;
+    static float SHADOW_MAP_WIDTH;
+    // finds the memory type needed for the properties provided. filter removes memory types not needed
+    static uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
     // determines if the physical device matches the requirements
-    bool isDeviceSuitable(VkPhysicalDevice device, SwapchainSupportDetails swapChainSupport, std::vector<const char *> deviceExtensions);
+    static bool isDeviceSuitable(VkPhysicalDevice device, SwapchainSupportDetails swapChainSupport, std::vector<const char *> deviceExtensions);
 
-    //determines if the physical device supports the list of device extensions
-    bool checkDeviceExtensionSupport(VkPhysicalDevice device, std::vector<const char *> deviceExtensions);
+    // determines if the physical device supports the list of device extensions
+    static bool checkDeviceExtensionSupport(VkPhysicalDevice device, std::vector<const char *> deviceExtensions);
 
-    //determines if the validation layers are supported
-    bool checkValidationLayerSupport(std::vector<const char *> validationLayers);
+    // determines if the validation layers are supported
+    static bool checkValidationLayerSupport(std::vector<const char *> validationLayers);
 
-    std::vector<const char *> getRequiredExtensions();
+    static std::vector<const char *> getRequiredExtensions();
 
-    std::vector<char> readFile(const std::string &filename);
+    static std::vector<char> readFile(const std::string &filename);
 
-    VkFormat findDepthFormat();
+    static VkFormat findDepthFormat();
 
-    VkSampleCountFlagBits getMaxUsableSampleCount();
+    static VkSampleCountFlagBits getMaxUsableSampleCount();
 
-    VkFormat findSupportedFormat(const std::vector<VkFormat> &candidates, VkImageTiling tiling,
-                                 VkFormatFeatureFlags features);
-}
+    static VkFormat findSupportedFormat(const std::vector<VkFormat> &candidates, VkImageTiling tiling,
+                                        VkFormatFeatureFlags features);
+
+    static float getShadowMapHeight();
+    static float getShadowMapWidth();
+};
 
 #endif

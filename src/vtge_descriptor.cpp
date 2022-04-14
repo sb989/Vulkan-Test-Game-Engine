@@ -116,17 +116,23 @@ namespace Descriptor
                 bufferInfo->range = bInfo.range;
                 descriptorWrites.push_back(Descriptor::createWriteDescriptorSet(
                     VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, descriptorSet, bInfo.binding,
-                    0, bInfo.type, 1, bufferInfo, nullptr, nullptr));
+                    0, bInfo.type, bInfo.descriptorCount, bufferInfo, nullptr, nullptr));
             }
             for (VtgeImageInfo iInfo : images)
             {
-                VkDescriptorImageInfo *imageInfo = new VkDescriptorImageInfo();
-                imageInfo->imageLayout = iInfo.layout;
-                imageInfo->imageView = iInfo.view;
-                imageInfo->sampler = iInfo.sampler;
+                // VkDescriptorImageInfo *imageInfo = new VkDescriptorImageInfo();
+                std::vector<VkDescriptorImageInfo> *imageInfos = new std::vector<VkDescriptorImageInfo>();
+                for (int index = 0; index < iInfo.descriptorCount; index++)
+                {
+                    VkDescriptorImageInfo imageInfo;
+                    imageInfo.imageLayout = iInfo.layout;
+                    imageInfo.imageView = iInfo.view;
+                    imageInfo.sampler = iInfo.sampler;
+                    imageInfos->push_back(imageInfo);
+                }
                 descriptorWrites.push_back(createWriteDescriptorSet(
                     VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, descriptorSet, iInfo.binding,
-                    0, iInfo.type, 1, nullptr, imageInfo, nullptr));
+                    0, iInfo.type, iInfo.descriptorCount, nullptr, imageInfos->data(), nullptr));
             }
             updateDescriptorSets(descriptorWrites);
             for (VkWriteDescriptorSet write : descriptorWrites)

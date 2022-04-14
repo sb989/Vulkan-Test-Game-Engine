@@ -1,18 +1,40 @@
 #include "vtge_pipeline.hpp"
 #include "vtge_vertex.hpp"
+#include "vtge_getter_and_checker_functions.hpp"
 #include "vtge_swapchain.hpp"
 #include "vtge_graphics.hpp"
 
 Pipeline::Pipeline(std::string vertPath, std::string fragPath, Swapchain *swapchain,
-                   VkRenderPass *renderPass, VkDescriptorSetLayout *descriptorSetLayout, uint32_t setLayoutCount)
+                   VkRenderPass *renderPass, VkDescriptorSetLayout *descriptorSetLayout, uint32_t setLayoutCount, uint32_t subpassIndex)
 {
+    // camera space stuff pipeline constructor
     this->vertFilePath = vertPath;
     this->fragFilePath = fragPath;
-    this->swapchain = swapchain;
+    // this->swapchain = swapchain;
     this->renderPass = renderPass;
     this->descriptorSetLayout = descriptorSetLayout;
     this->setLayoutCount = setLayoutCount;
-    createPipeline();
+    this->viewPortHeight = (float)swapchain->swapchainExtent.height;
+    this->viewPortWidth = (float)swapchain->swapchainExtent.width;
+    this->extent = swapchain->swapchainExtent;
+    createPipeline(subpassIndex);
+}
+
+Pipeline::Pipeline(std::string vertPath, std::string fragPath, VkRenderPass *renderPass,
+                   VkDescriptorSetLayout *descriptorSetLayout, uint32_t setLayoutCount, uint32_t subpassIndex)
+{
+    // shadow map pipeline constructor
+    this->vertFilePath = vertPath;
+    this->fragFilePath = fragPath;
+    // this->swapchain = swapchain;
+    this->renderPass = renderPass;
+    this->descriptorSetLayout = descriptorSetLayout;
+    this->setLayoutCount = setLayoutCount;
+    this->viewPortHeight = getterChecker::getShadowMapHeight();
+    this->viewPortWidth = getterChecker::getShadowMapWidth();
+    this->extent.height = this->viewPortHeight;
+    this->extent.width = this->viewPortWidth;
+    createDepthOnlyPipeline(subpassIndex);
 }
 
 Pipeline::~Pipeline()
@@ -22,6 +44,20 @@ Pipeline::~Pipeline()
     vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
 }
 
+Pipeline *Pipeline::createDrawingPipeline(std::string vertPath, std::string fragPath, Swapchain *swapchain,
+                                          VkRenderPass *renderPass, VkDescriptorSetLayout *descriptorSetLayout,
+                                          uint32_t setLayoutCount, uint32_t subpassIndex)
+{
+    Pipeline *pipe = new Pipeline(vertPath, fragPath, swapchain, renderPass, descriptorSetLayout, setLayoutCount, subpassIndex);
+    return pipe;
+}
+
+Pipeline *Pipeline::createShadowPipeline(std::string vertPath, std::string fragPath, VkRenderPass *renderPass,
+                                         VkDescriptorSetLayout *descriptorSetLayout, uint32_t setLayoutCount, uint32_t subpassIndex)
+{
+    Pipeline *pipe = new Pipeline(vertPath, fragPath, renderPass, descriptorSetLayout, setLayoutCount, subpassIndex);
+    return pipe;
+}
 VkPipelineColorBlendStateCreateInfo Pipeline::createColorBlending()
 {
     VkPipelineColorBlendAttachmentState *colorBlendAttachment = new VkPipelineColorBlendAttachmentState();
@@ -55,13 +91,12 @@ VkPipelineColorBlendStateCreateInfo Pipeline::createColorBlending()
     return colorBlending;
 }
 
-VkPipelineMultisampleStateCreateInfo Pipeline::createMultiSampling()
+VkPipelineMultisampleStateCreateInfo Pipeline::createMultiSampling(VkSampleCountFlagBits sampleCount)
 {
-    VkSampleCountFlagBits msaaSamples = Graphics::getMsaaSamples();
     VkPipelineMultisampleStateCreateInfo multisampling{};
     multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
     multisampling.sampleShadingEnable = VK_FALSE; // set to VK_TRUE to enable sample shading (anti aliasing for textures)
-    multisampling.rasterizationSamples = msaaSamples;
+    multisampling.rasterizationSamples = sampleCount;
     multisampling.minSampleShading = 1.0f;          // Optional min fraction for sample shading; closer to 1 the smoother
     multisampling.pSampleMask = nullptr;            // Optional
     multisampling.alphaToCoverageEnable = VK_FALSE; // Optional
@@ -77,7 +112,7 @@ VkPipelineRasterizationStateCreateInfo Pipeline::createRasterizer()
     rasterizer.rasterizerDiscardEnable = VK_FALSE;
     rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
     rasterizer.lineWidth = 1.0f;
-    rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+    rasterizer.cullMode = VK_CULL_MODE_FRONT_BIT; // VK_CULL_MODE_BACK_BIT;
     rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rasterizer.depthBiasEnable = VK_FALSE;
     rasterizer.depthBiasConstantFactor = 0.0f; // Optional
@@ -91,14 +126,14 @@ VkPipelineViewportStateCreateInfo Pipeline::createViewPort()
     VkViewport *viewport = new VkViewport();
     viewport->x = 0.0f;
     viewport->y = 0.0f;
-    viewport->width = (float)swapchain->swapchainExtent.width;
-    viewport->height = (float)swapchain->swapchainExtent.height;
+    viewport->width = viewPortWidth;
+    viewport->height = viewPortWidth;
     viewport->minDepth = 0.0f;
     viewport->maxDepth = 1.0f;
 
     VkRect2D *scissor = new VkRect2D();
     scissor->offset = {0, 0};
-    scissor->extent = swapchain->swapchainExtent;
+    scissor->extent = extent;
 
     VkPipelineViewportStateCreateInfo viewportState{};
     viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -203,16 +238,60 @@ void Pipeline::loadShaderModule(std::string vertFilePath, std::string fragFilePa
     shaderStages[1] = fragShaderStageInfo;
 }
 
-void Pipeline::createPipeline()
+void Pipeline::createDepthOnlyPipeline(uint32_t subpassIndex)
 {
     VkDevice device = Graphics::getDevice();
     createPipelineLayout();
     loadShaderModule(vertFilePath, fragFilePath);
+    // VkPipelineColorBlendStateCreateInfo colorBlending = createColorBlending();
+    VkPipelineMultisampleStateCreateInfo multisampling = createMultiSampling(VK_SAMPLE_COUNT_1_BIT);
+    VkPipelineRasterizationStateCreateInfo rasterizer = createRasterizer();
+    VkPipelineViewportStateCreateInfo viewportState = createViewPort();
+    VkPipelineInputAssemblyStateCreateInfo inputAssembly = createInputAssembly();
+    VkPipelineVertexInputStateCreateInfo *vertexInputInfo = createVertexInputInfo();
+    VkPipelineDepthStencilStateCreateInfo depthStencil = createDepthStencil();
+
+    VkGraphicsPipelineCreateInfo pipelineInfo{};
+    pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    pipelineInfo.stageCount = 2;
+    pipelineInfo.pStages = shaderStages.data();
+    pipelineInfo.pVertexInputState = vertexInputInfo;
+    pipelineInfo.pInputAssemblyState = &inputAssembly;
+    pipelineInfo.pViewportState = &viewportState;
+    pipelineInfo.pRasterizationState = &rasterizer;
+    pipelineInfo.pMultisampleState = &multisampling;
+
+    pipelineInfo.pDepthStencilState = &depthStencil; // Optional
+    pipelineInfo.pDynamicState = nullptr;            // Optional
+    pipelineInfo.layout = pipelineLayout;
+    pipelineInfo.renderPass = *renderPass;
+    pipelineInfo.subpass = subpassIndex;
+    // pipelineInfo.pDepthStencilState = &depthStencil;
+
+    if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to create graphics pipeline!");
+    }
+    delete pipelineInfo.pVertexInputState->pVertexAttributeDescriptions;
+    delete pipelineInfo.pVertexInputState->pVertexBindingDescriptions;
+    delete pipelineInfo.pVertexInputState;
+    delete pipelineInfo.pViewportState->pViewports;
+    delete pipelineInfo.pViewportState->pScissors;
+    vkDestroyShaderModule(device, shaderStages[1].module, nullptr);
+    vkDestroyShaderModule(device, shaderStages[0].module, nullptr);
+}
+
+void Pipeline::createPipeline(uint32_t subpassIndex)
+{
+    VkDevice device = Graphics::getDevice();
+    createPipelineLayout();
+    loadShaderModule(vertFilePath, fragFilePath);
+    VkSampleCountFlagBits msaaSamples = Graphics::getMsaaSamples();
 
     VkPipelineColorBlendStateCreateInfo colorBlending = createColorBlending();
-    VkPipelineMultisampleStateCreateInfo multisampling = createMultiSampling();
+    VkPipelineMultisampleStateCreateInfo multisampling = createMultiSampling(msaaSamples);
     VkPipelineRasterizationStateCreateInfo rasterizer = createRasterizer();
-    VkPipelineViewportStateCreateInfo viewportState = createViewPort(); //<--- problem funciton !!!
+    VkPipelineViewportStateCreateInfo viewportState = createViewPort();
     VkPipelineInputAssemblyStateCreateInfo inputAssembly = createInputAssembly();
     VkPipelineVertexInputStateCreateInfo *vertexInputInfo = createVertexInputInfo();
     VkPipelineDepthStencilStateCreateInfo depthStencil = createDepthStencil();
@@ -231,7 +310,7 @@ void Pipeline::createPipeline()
     pipelineInfo.pDynamicState = nullptr; // Optional
     pipelineInfo.layout = pipelineLayout;
     pipelineInfo.renderPass = *renderPass;
-    pipelineInfo.subpass = 0;
+    pipelineInfo.subpass = subpassIndex;
     pipelineInfo.pDepthStencilState = &depthStencil;
 
     if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline) != VK_SUCCESS)

@@ -72,7 +72,7 @@ void Texture::createSolidColorTexture(int width, int height, glm::vec4 color)
     VkCommandBuffer graphicsCommandBuffer = Graphics::getGraphicsCommandBuffer(),
                     transferCommandBuffer = Graphics::getTransferCommandBuffer();
     mipLevels = 1;
-    unsigned char *pixels = new unsigned char [width * height * 4]();
+    unsigned char *pixels = new unsigned char[width * height * 4]();
     for (int h = 0; h < height; h++)
     {
         for (int w = 0; w < width; w++)
@@ -102,12 +102,12 @@ void Texture::createSolidColorTexture(int width, int height, glm::vec4 color)
                        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
 
     image::transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB,
-                                 VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, transferCommandBuffer, 1);
+                                 VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, transferCommandBuffer, 1, 1);
     copyBufferToImage(stagingBuffer, textureImage, static_cast<uint32_t>(width),
                       static_cast<uint32_t>(height));
     image::transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB,
                                  VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, graphicsCommandBuffer, 1);
+                                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, graphicsCommandBuffer, 1, 1);
 }
 
 void Texture::createTextureImage()
@@ -140,14 +140,14 @@ void Texture::createTextureImage()
                        VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
                        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, textureImage, textureImageMemory);
     image::transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB,
-                                 VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, transferCommandBuffer, mipLevels);
+                                 VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, transferCommandBuffer, mipLevels, 1);
     copyBufferToImage(stagingBuffer, textureImage, static_cast<uint32_t>(texWidth),
                       static_cast<uint32_t>(texHeight));
     /*
     transitions to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL while generating mipmaps
     if not using mipmaps the code below needs to be used
     transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB,
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, graphicsCommandBuffer, 1);
     */
     generateMipmaps(textureImage, VK_FORMAT_R8G8B8A8_SRGB, graphicsCommandBuffer, texWidth, texHeight, mipLevels);
@@ -157,7 +157,7 @@ void Texture::generateMipmaps(VkImage image, VkFormat imageFormat, VkCommandBuff
 {
     VkPhysicalDevice physicalDevice = Graphics::getPhysicalDevice();
     VkFormatProperties formatProperties;
-    //check if it supports linear blitting
+    // check if it supports linear blitting
     vkGetPhysicalDeviceFormatProperties(physicalDevice, imageFormat, &formatProperties);
     if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT))
     {

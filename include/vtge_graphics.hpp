@@ -2,7 +2,7 @@
 #define __VTGE_GRAPHICS_HPP__
 #define GLFW_INCLUDE_VULKAN
 #include "vtge_vertex.hpp"
-#include "vtge_getter_and_checker_functions.hpp"
+#include "vtge_queuefamilyindices.hpp"
 #include <GLFW/glfw3.h>
 #include <string>
 #include <vector>
@@ -18,6 +18,8 @@ struct PushConstants
 {
     alignas(16) glm::mat4 normMatrix;
 };
+
+struct SwapchainSupportDetails;
 
 class Swapchain;
 class Framebuffer;
@@ -43,25 +45,34 @@ public:
     static void endTransferCommandBuffer();
     static VkDevice getDevice();
     static Swapchain *getSwapchain();
-    static SwapchainSupportDetails getSwapchainSupport();
+    static void getSwapchainSupport(SwapchainSupportDetails *details);
     static Framebuffer *getFramebuffer();
     static VkInstance getInstance();
     static Pipeline *getGraphicsPipeline();
     static Pipeline *getLightPipeline();
     static VkCommandBuffer getGraphicsCommandBuffer();
     static VkCommandBuffer getTransferCommandBuffer();
+    static std::vector<VkCommandBuffer> getDrawCommandBuffer();
     static VkQueue getGraphicsQueue();
     static VkQueue getPresentQueue();
     static VkQueue getTransferQueue();
     static VkCommandPool getGraphicsCommandPool();
     static VkCommandPool getTransferCommandPool();
     static QueueFamilyIndices getQueueFamilyIndices();
+    static size_t getMaxFramesInFlight();
+    static Camera *getCamera();
     static VkSurfaceKHR getSurface();
     static VkSampleCountFlagBits getMsaaSamples();
     static VkPhysicalDevice getPhysicalDevice();
+    static void allocateCommandBuffer(std::vector<VkCommandBuffer> *commandBuffer, uint32_t commandBufferCount);
+    static void submitQueue(VkCommandBuffer *commandBuffer, VkFence *fence, std::vector<VkSemaphore> *signalSemaphores,
+                            std::vector<VkSemaphore> *waitSemaphores, std::vector<VkPipelineStageFlags> *waitStages);
+
+    static void beginCommandBuffer(VkCommandBuffer cmdBuffer, std::string name);
+    static void endCommandBuffer(VkCommandBuffer cmdBuffer);
 
 private:
-    const int MAX_FRAMES_IN_FLIGHT = 2;
+    static const int MAX_FRAMES_IN_FLIGHT = 2;
     size_t currentFrame = 0;
 
     std::string windowTitle = "Vulkan Test Game Engine - FPS: ";
@@ -70,13 +81,13 @@ private:
     float xVel, yVel, zVel;
     uint32_t mipLevels;
     uint32_t WIDTH, HEIGHT;
-    std::vector<VkCommandBuffer> drawCommandBuffers;
+    static std::vector<VkCommandBuffer> drawCommandBuffers;
     std::vector<VkSemaphore> imageAvailableSemaphores, renderFinishedSemaphores;
     std::vector<VkFence> inFlightFences, imagesInFlight;
     static Swapchain *swapchain;
     static Camera *cam;
-    static SwapchainSupportDetails swapchainSupport;
-    static Framebuffer *framebuffer;
+    static SwapchainSupportDetails *swapchainSupport;
+    static Framebuffer *framebuffer, *shadowFramebuffer;
     static VkInstance instance;
     static VkRenderPass renderPass;
     static Pipeline *graphicsPipeline, *lightPipeline;
@@ -99,13 +110,10 @@ private:
 
     void createLogicalDevice();
 
-    void createRenderPass();
-
-    void createPipeline();
-
     void createCommandPool();
 
-    void allocateDrawCommandBuffers();
+    void allocateCommandBuffers();
+    void populateAndDrawObjects(uint32_t imageIndex);
 
     void populateDrawCommandBuffer(size_t index);
 
@@ -113,17 +121,7 @@ private:
 
     bool waitForFence(uint32_t &imageIndex);
 
-    void submitQueue(VkSemaphore signalSemaphores[], uint32_t imageIndex);
-
-    void presentQueueToScreen(uint32_t &imageIndex, VkSemaphore signalSemaphores[]);
-
-    void handleKeyPress(GLFWwindow *window);
-
-    static void handleMouse(GLFWwindow *window, double x_pos, double y_pos);
-
-    static void updateCamera();
-
-    void updateUniformBuffer(uint32_t currentImage, Model *m);
+    void presentQueueToScreen(uint32_t &imageIndex, std::vector<VkSemaphore> *signalSemaphores);
 
     void recreateSwapchain();
 
@@ -133,9 +131,6 @@ private:
 
     QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
 
-    SwapchainSupportDetails querySwapchainSupport(VkPhysicalDevice testDevice);
-
-    glm::quat angleBetweenVectors(glm::vec3 start, glm::vec3 end);
+    void querySwapchainSupport(VkPhysicalDevice testDevice, SwapchainSupportDetails *details);
 };
-
 #endif

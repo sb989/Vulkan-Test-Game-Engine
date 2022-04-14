@@ -4,15 +4,21 @@
 #include "vtge_texture.hpp"
 #include "vtge_descriptor.hpp"
 #include "vtge_light.hpp"
+#include "vtge_camera.hpp"
 #include "vtge_swapchain.hpp"
 #include "vtge_graphics.hpp"
+#include "glm/gtx/string_cast.hpp"
+
 #include <iostream>
 #include <cstring>
 static std::vector<Object *> objectList{};
+static int g_index = 0;
 Object::Object(std::string modelPath, uint32_t imageCount, std::string diffuseMapPath, std::string specularMapPath, glm::vec4 color, std::string colorName)
 {
     this->m = new Model(modelPath, imageCount, diffuseMapPath, specularMapPath, color, colorName);
     this->imageCount = imageCount;
+    this->objIndex = g_index;
+    g_index++;
     objectList.push_back(this);
     isVisible = true;
 }
@@ -29,6 +35,16 @@ void Object::createObject(std::string modelPath, glm::vec3 translate, glm::vec3 
     uint32_t imgCount = Graphics::getSwapchain()->swapchainImages.size();
     Object *obj = new Object(modelPath, imgCount, "", "", color, colorName);
     setObjectTransform(obj, translate, scale, rotate);
+}
+
+std::vector<Object *> Object::getObjectList()
+{
+    return objectList;
+}
+
+Model *Object::getModel()
+{
+    return m;
 }
 
 void Object::setObjectTransform(Object *obj, glm::vec3 translate, glm::vec3 scale, glm::vec3 rotate)
@@ -48,6 +64,18 @@ void Object::drawAllObjects(VkCommandBuffer *commandBuffer, Pipeline *pipeline, 
     vkCmdBindPipeline(*commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, *pipeline->getPipeline());
     for (int i = 0; i < objectList.size(); i++)
     {
+        Model *m = objectList[i]->getModel();
+        glm::mat4 modelMat = m->getModelMat();
+
+        if (i == 0)
+        {
+            Camera *cam = Graphics::getCamera();
+
+            glm::mat4 modelView = cam->getViewMat() * modelMat;
+
+            // std::cout << glm::to_string(modelView) << "used in normal draw object 0" << std::endl;
+        }
+
         if (objectList[i]->getIsVisible())
             objectList[i]->drawObject(commandBuffer, pipeline->getPipelineLayout(), index);
     }
@@ -55,8 +83,8 @@ void Object::drawAllObjects(VkCommandBuffer *commandBuffer, Pipeline *pipeline, 
 
 void Object::drawObject(VkCommandBuffer *commandBuffer, VkPipelineLayout pipelineLayout, int index)
 {
-    //draw object model and anything else thats needs to be drawn with the object
-    std::vector<VkDescriptorSet> combinedDescriptorSets = {(*Light::getDescriptorSets())[index]};
+    // draw object model and anything else thats needs to be drawn with the object
+    std::vector<VkDescriptorSet> combinedDescriptorSets = {(*Light::getDescriptorSets())[index], (*Light::getShadowMapDescriptorSet())[index]};
     m->drawModel(combinedDescriptorSets, commandBuffer, pipelineLayout, index);
 }
 

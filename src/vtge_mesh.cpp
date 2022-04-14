@@ -5,9 +5,10 @@
 #include "vtge_texture.hpp"
 #include "vtge_light.hpp"
 #include "vtge_graphics.hpp"
+#include "glm/gtx/string_cast.hpp"
 #include <cstring>
-
-VkDescriptorSetLayout *Mesh::descriptorSetLayout = nullptr;
+#include <iostream>
+VkDescriptorSetLayout *Mesh::descriptorSetLayout = nullptr, *Mesh::shadowDescriptorSetLayout = nullptr;
 
 Mesh::Mesh(std::vector<Vertex> vertices, std::vector<uint32_t> indices, std::vector<Texture *> diffuseMap, std::vector<Texture *> specularMap, uint32_t imageCount, Node *n)
 {
@@ -17,6 +18,7 @@ Mesh::Mesh(std::vector<Vertex> vertices, std::vector<uint32_t> indices, std::vec
     this->specularMap = specularMap;
     this->imageCount = imageCount;
     this->node = n;
+    // this->meshUbo = new UniformBufferObject();
     createVertexBuffer();
     createIndexBuffer();
     initDescriptorSets(imageCount);
@@ -32,11 +34,13 @@ Mesh::~Mesh()
     vkDestroyBuffer(device, vertexBuffer, nullptr);
     vkFreeMemory(device, vertexBufferMemory, nullptr);
     delete node;
+    // delete meshUbo;
 }
 
 void Mesh::initMeshSystem()
 {
     setupDescriptorSetLayout();
+    setupShadowDescriptorSetLayout();
 }
 
 void Mesh::drawMesh(std::vector<VkDescriptorSet> combinedDescriptorSets, VkCommandBuffer *commandBuffer, VkPipelineLayout pipelineLayout, int index)
@@ -63,6 +67,21 @@ glm::mat4 Mesh::getMeshTransform()
     return assimpMat4ToGlmMat4(transform);
 }
 
+VkBuffer Mesh::getVertexBuffer()
+{
+    return vertexBuffer;
+}
+
+VkBuffer Mesh::getIndexBuffer()
+{
+    return indexBuffer;
+}
+
+std::vector<uint32_t> Mesh::getIndices()
+{
+    return indices;
+}
+
 glm::mat4 Mesh::assimpMat4ToGlmMat4(aiMatrix4x4 aiMat)
 {
     glm::mat4 ret = {
@@ -78,20 +97,25 @@ void Mesh::initDescriptorSets(uint32_t imageCount)
     createDescriptorBuffers();
     createDescriptorPool();
     createDescriptorSets();
+    createShadowDescriptorSets();
 }
 
 void Mesh::createDescriptorBuffers()
 {
     Descriptor::createDescriptorBuffer(sizeof(UniformBufferObject), &uniformBuffers, &uniformBuffersMemory, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, imageCount);
     Descriptor::createDescriptorBuffer(sizeof(Material), &material, &materialMemory, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, imageCount);
+    Descriptor::createDescriptorBuffer(sizeof(ModelLightMatrix), &shadowBuffer, &shadowBufferMemory, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, imageCount);
 }
 
 void Mesh::createDescriptorPool()
 {
     std::vector<VkDescriptorPoolSize> poolSizes = {
-        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2 * imageCount},
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 3 * imageCount},
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2 * imageCount}};
     descriptorPool = Descriptor::createDescriptorPool(imageCount, poolSizes);
+    std::vector<VkDescriptorPoolSize> poolSizes1 = {
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 3 * imageCount}};
+    shadowDescriptorPool = Descriptor::createDescriptorPool(imageCount, poolSizes1);
 }
 
 void Mesh::setupDescriptorSetLayout()
@@ -109,6 +133,31 @@ void Mesh::setupDescriptorSetLayout()
     descriptorSetLayout = Descriptor::createDescriptorSetLayout(&bindings);
 }
 
+void Mesh::setupShadowDescriptorSetLayout()
+{
+    auto shadowUboLayoutBinding = Descriptor::createDescriptorSetLayoutBinding(
+        0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr);
+    std::vector<VkDescriptorSetLayoutBinding> bindings = {shadowUboLayoutBinding};
+
+    shadowDescriptorSetLayout = Descriptor::createDescriptorSetLayout(&bindings);
+}
+
+void Mesh::createShadowDescriptorSets()
+{
+    shadowDescriptorSets = Descriptor::allocateDescriptorSets(imageCount, *shadowDescriptorSetLayout, *shadowDescriptorPool);
+    std::vector<VtgeBufferInfo> bufferInfos;
+    std::vector<VtgeImageInfo> imageInfos;
+    VtgeBufferInfo mlmInfo{};
+    mlmInfo.buffer = shadowBuffer.data();
+    mlmInfo.offset = 0;
+    mlmInfo.range = sizeof(ModelLightMatrix);
+    mlmInfo.binding = 0;
+    mlmInfo.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    mlmInfo.descriptorCount = 1;
+    bufferInfos.push_back(mlmInfo);
+    Descriptor::populateDescriptorBuffer(shadowDescriptorSets, imageCount, bufferInfos, imageInfos);
+}
+
 void Mesh::createDescriptorSets()
 {
     descriptorSets = Descriptor::allocateDescriptorSets(imageCount, *descriptorSetLayout, *descriptorPool);
@@ -120,14 +169,16 @@ void Mesh::createDescriptorSets()
     uniformBuffer.range = sizeof(UniformBufferObject);
     uniformBuffer.binding = 0;
     uniformBuffer.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    uniformBuffer.descriptorCount = 1;
     bufferInfos.push_back(uniformBuffer);
     VtgeBufferInfo materialBuffer{};
     materialBuffer.buffer = material.data();
     materialBuffer.offset = 0;
     materialBuffer.range = sizeof(Material);
     materialBuffer.binding = 3;
+    materialBuffer.descriptorCount = 1;
     materialBuffer.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    //bufferInfos.push_back(directionalLightBuffer);
+    // bufferInfos.push_back(directionalLightBuffer);
     bufferInfos.push_back(materialBuffer);
     VtgeImageInfo imageBuffer{};
     imageBuffer.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -135,12 +186,14 @@ void Mesh::createDescriptorSets()
     imageBuffer.sampler = diffuseMap[0]->textureSampler;
     imageBuffer.binding = 1;
     imageBuffer.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    imageBuffer.descriptorCount = 1;
     VtgeImageInfo specMapBuffer{};
     specMapBuffer.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     specMapBuffer.view = specularMap[0]->textureImageView;
     specMapBuffer.sampler = specularMap[0]->textureSampler;
     specMapBuffer.binding = 2;
     specMapBuffer.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    specMapBuffer.descriptorCount = 1;
     imageInfos.push_back(imageBuffer);
     imageInfos.push_back(specMapBuffer);
     Descriptor::populateDescriptorBuffer(descriptorSets, imageCount, bufferInfos, imageInfos);
@@ -183,11 +236,20 @@ VkDescriptorSetLayout *Mesh::getDescriptorSetLayout()
     return descriptorSetLayout;
 }
 
+VkDescriptorSetLayout *Mesh::getShadowDescriptorSetLayout()
+{
+    return shadowDescriptorSetLayout;
+}
+
 std::vector<VkDescriptorSet> *Mesh::getDescriptorSets()
 {
     return descriptorSets;
 }
 
+std::vector<VkDescriptorSet> *Mesh::getShadowDescriptorSets()
+{
+    return shadowDescriptorSets;
+}
 void Mesh::recreateUBufferPoolSets(uint32_t imageCount)
 {
     this->imageCount = imageCount;
@@ -214,7 +276,9 @@ void Mesh::destroyDescriptorSetLayout()
 {
     VkDevice device = Graphics::getDevice();
     vkDestroyDescriptorSetLayout(device, *descriptorSetLayout, nullptr);
+    vkDestroyDescriptorSetLayout(device, *shadowDescriptorSetLayout, nullptr);
     delete (descriptorSetLayout);
+    delete (shadowDescriptorSetLayout);
 }
 
 void Mesh::cleanupMemory()
@@ -224,12 +288,17 @@ void Mesh::cleanupMemory()
     {
         vkDestroyBuffer(device, uniformBuffers[j], nullptr);
         vkFreeMemory(device, uniformBuffersMemory[j], nullptr);
+        vkDestroyBuffer(device, shadowBuffer[j], nullptr);
+        vkFreeMemory(device, shadowBufferMemory[j], nullptr);
         vkDestroyBuffer(device, material[j], nullptr);
         vkFreeMemory(device, materialMemory[j], nullptr);
     }
     vkDestroyDescriptorPool(device, *descriptorPool, nullptr);
+    vkDestroyDescriptorPool(device, *shadowDescriptorPool, nullptr);
     delete descriptorPool;
+    delete shadowDescriptorPool;
     delete descriptorSets;
+    delete shadowDescriptorSets;
 }
 
 void Mesh::updateUniformBuffers(UniformBufferObject ubo, uint32_t currentImage)
@@ -237,7 +306,31 @@ void Mesh::updateUniformBuffers(UniformBufferObject ubo, uint32_t currentImage)
     void *data;
     VkDevice device = Graphics::getDevice();
     ubo.modelView = ubo.modelView * getMeshTransform();
-    vkMapMemory(device, uniformBuffersMemory[currentImage], 0, sizeof(ubo), 0, &data);
-    memcpy(data, &ubo, sizeof(ubo));
+    ubo.model = ubo.model * getMeshTransform();
+    vkMapMemory(device, uniformBuffersMemory[currentImage], 0, sizeof(UniformBufferObject), 0, &data);
+    memcpy(data, &ubo, sizeof(UniformBufferObject));
     vkUnmapMemory(device, uniformBuffersMemory[currentImage]);
+}
+
+void Mesh::updateShadowBuffers(glm::mat4 modelMat, glm::mat4 viewLightMat, glm::mat4 projLightMat, uint32_t currentImage)
+{
+    void *data;
+    VkDevice device = Graphics::getDevice();
+    ModelLightMatrix mlm;
+    mlm.modelViewLightMat = viewLightMat * modelMat;
+    mlm.modelViewLightMat *= getMeshTransform();
+    mlm.projLightMat = projLightMat;
+    vkMapMemory(device, shadowBufferMemory[currentImage], 0, sizeof(ModelLightMatrix), 0, &data);
+    memcpy(data, &mlm, sizeof(ModelLightMatrix));
+    vkUnmapMemory(device, shadowBufferMemory[currentImage]);
+}
+
+VkDeviceMemory Mesh::getUniformBuffersMemory(uint32_t currentImage)
+{
+    return uniformBuffersMemory[currentImage];
+}
+
+UniformBufferObject *Mesh::getMeshUbo()
+{
+    return meshUbo;
 }

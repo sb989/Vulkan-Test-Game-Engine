@@ -57,8 +57,8 @@ void Model::assimpLoadModel()
 
 void Model::processNode(aiNode *node, const aiScene *scene, Node *parentNode)
 {
-    //following learnopengl tutorial
-    //https://learnopengl.com/Model-Loading/Model
+    // following learnopengl tutorial
+    // https://learnopengl.com/Model-Loading/Model
     Node *n = new Node();
     n->transform = node->mTransformation;
     n->parent = parentNode;
@@ -76,8 +76,8 @@ void Model::processNode(aiNode *node, const aiScene *scene, Node *parentNode)
 
 Mesh *Model::processMesh(aiMesh *mesh, const aiScene *scene, Node *node)
 {
-    //following learnopengl tutorial
-    //https://learnopengl.com/Model-Loading/Model
+    // following learnopengl tutorial
+    // https://learnopengl.com/Model-Loading/Model
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indices;
     std::vector<Texture *> diffuseMaps;
@@ -118,7 +118,7 @@ Mesh *Model::processMesh(aiMesh *mesh, const aiScene *scene, Node *node)
             indices.push_back(face.mIndices[j]);
     }
     // process material
-    //std::cout<<"material index "<<mesh->mMaterialIndex<<std::endl;
+    // std::cout<<"material index "<<mesh->mMaterialIndex<<std::endl;
     if (mesh->mMaterialIndex >= 0)
     {
         aiMaterial *material = scene->mMaterials[mesh->mMaterialIndex];
@@ -151,7 +151,7 @@ std::vector<Texture *> Model::loadMaterialTextures(aiMaterial *mat, aiTextureTyp
 {
     std::vector<Texture *> textures;
     auto count = mat->GetTextureCount(type);
-    //std::cout<<"texture count "<< count <<std::endl;
+    // std::cout<<"texture count "<< count <<std::endl;
     for (unsigned int i = 0; i < count; i++)
     {
         aiString str;
@@ -211,9 +211,13 @@ void Model::updateModelMat(uint32_t currentImage, glm::mat4 projection, glm::mat
     ubo.modelView = view * getModelMat();
     ubo.proj = projection;
     ubo.normMatrix = transpose(inverse(ubo.modelView));
+    ubo.model = getModelMat();
+    // std::cout << "used in update model mat\n"
+    //           << glm::to_string(ubo.modelView) << std::endl;
     for (int i = 0; i < meshes.size(); i++)
     {
         meshes[i]->updateUniformBuffers(ubo, currentImage);
+        //meshes[i]->updateShadowBuffers(getModelMat(), currentImage);
     }
 }
 
@@ -225,6 +229,16 @@ glm::vec4 Model::getModelPos()
 glm::mat4 Model::getModelMat()
 {
     return modelMat;
+}
+
+std::string Model::getModelPath()
+{
+    return modelPath;
+}
+
+std::vector<Mesh *> Model::getMeshList()
+{
+    return meshes;
 }
 
 void Model::cleanupMemory()

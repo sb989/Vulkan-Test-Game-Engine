@@ -12,6 +12,11 @@ struct Material
 {
     alignas(4) float shininess;
 };
+struct ModelLightMatrix
+{
+    alignas(16) glm::mat4 modelViewLightMat;
+    alignas(16) glm::mat4 projLightMat;
+};
 struct UniformBufferObject;
 struct Node
 {
@@ -29,25 +34,35 @@ public:
     ~Mesh();
     void recreateUBufferPoolSets(uint32_t imageCount);
     static VkDescriptorSetLayout *getDescriptorSetLayout();
+    static VkDescriptorSetLayout *getShadowDescriptorSetLayout();
     std::vector<VkDescriptorSet> *getDescriptorSets();
+    std::vector<VkDescriptorSet> *getShadowDescriptorSets();
+    VkBuffer getVertexBuffer();
+    VkBuffer getIndexBuffer();
+    VkDeviceMemory getUniformBuffersMemory(uint32_t currentImage);
+    std::vector<uint32_t> getIndices();
+    glm::mat4 getMeshTransform();
+    UniformBufferObject *getMeshUbo();
     static void destroyDescriptorSetLayout();
     void drawMesh(std::vector<VkDescriptorSet> combinedDescriptorSets, VkCommandBuffer *commandBuffer, VkPipelineLayout pipelineLayout, int index);
     void updateMaterial(Material mat);
     void cleanupMemory();
     void updateUniformBuffers(UniformBufferObject ubo, uint32_t currentImage);
+    void updateShadowBuffers(glm::mat4 modelMat, glm::mat4 viewLightMat, glm::mat4 projLightMat, uint32_t currentImage);
     static glm::mat4 assimpMat4ToGlmMat4(aiMatrix4x4 mat4);
     static void initMeshSystem();
 
 private:
-    static VkDescriptorSetLayout *descriptorSetLayout;
+    UniformBufferObject *meshUbo;
+    static VkDescriptorSetLayout *descriptorSetLayout, *shadowDescriptorSetLayout;
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
     std::vector<Texture *> diffuseMap;
     std::vector<Texture *> specularMap;
-    std::vector<VkDeviceMemory> uniformBuffersMemory, materialMemory;
-    std::vector<VkBuffer> uniformBuffers, material;
-    std::vector<VkDescriptorSet> *descriptorSets;
-    VkDescriptorPool *descriptorPool;
+    std::vector<VkDeviceMemory> uniformBuffersMemory, materialMemory, shadowBufferMemory;
+    std::vector<VkBuffer> uniformBuffers, material, shadowBuffer;
+    std::vector<VkDescriptorSet> *descriptorSets, *shadowDescriptorSets;
+    VkDescriptorPool *descriptorPool, *shadowDescriptorPool;
     VkBuffer vertexBuffer, indexBuffer;
     VkDeviceMemory vertexBufferMemory, indexBufferMemory;
     Node *node;
@@ -57,9 +72,8 @@ private:
 
     void createIndexBuffer();
     void createBufferAndCopy(VkDeviceSize bufferSize, VkBuffer *buffer, VkDeviceMemory *deviceMemory, VkBufferUsageFlags flags, void *pointer);
-    void createDescriptorSetLayout();
-
     static void setupDescriptorSetLayout();
+    static void setupShadowDescriptorSetLayout();
 
     void initDescriptorSets(uint32_t imageCount);
 
@@ -68,8 +82,7 @@ private:
     void createDescriptorPool();
 
     void createDescriptorSets();
-
-    glm::mat4 getMeshTransform();
+    void createShadowDescriptorSets();
 };
 
 #endif
