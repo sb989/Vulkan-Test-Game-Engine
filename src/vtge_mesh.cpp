@@ -18,6 +18,7 @@ Mesh::Mesh(std::vector<Vertex> vertices, std::vector<uint32_t> indices, std::vec
     this->specularMap = specularMap;
     this->imageCount = imageCount;
     this->node = n;
+    this->directionalMLM.resize(10);
     // this->meshUbo = new UniformBufferObject();
     createVertexBuffer();
     createIndexBuffer();
@@ -102,16 +103,22 @@ void Mesh::initDescriptorSets(uint32_t imageCount)
 
 void Mesh::createDescriptorBuffers()
 {
-    Descriptor::createDescriptorBuffer(sizeof(UniformBufferObject), &uniformBuffers, &uniformBuffersMemory, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, imageCount);
-    Descriptor::createDescriptorBuffer(sizeof(Material), &material, &materialMemory, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, imageCount);
-    Descriptor::createDescriptorBuffer(sizeof(ModelLightMatrix), &shadowBuffer, &shadowBufferMemory, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, imageCount);
+    Descriptor::createDescriptorBuffer(
+        sizeof(UniformBufferObject), &uniformBuffers, &uniformBuffersMemory, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, imageCount);
+    Descriptor::createDescriptorBuffer(
+        sizeof(Material), &material, &materialMemory, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, imageCount);
+    Descriptor::createDescriptorBuffer(
+        sizeof(ModelLightMatrix), &shadowBuffer, &shadowBufferMemory, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, imageCount);
+    Descriptor::createDescriptorBuffer(
+        sizeof(ModelLightMatrix) * MAX_LIGHT_COUNT, &mlmBuffer, &mlmBufferMemory, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, imageCount);
 }
 
 void Mesh::createDescriptorPool()
 {
     std::vector<VkDescriptorPoolSize> poolSizes = {
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 3 * imageCount},
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2 * imageCount}};
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2 * imageCount},
+        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, imageCount}};
     descriptorPool = Descriptor::createDescriptorPool(imageCount, poolSizes);
     std::vector<VkDescriptorPoolSize> poolSizes1 = {
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 3 * imageCount}};
@@ -128,8 +135,11 @@ void Mesh::setupDescriptorSetLayout()
         2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
     auto materialLayoutBinding = Descriptor::createDescriptorSetLayoutBinding(
         3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
-    std::vector<VkDescriptorSetLayoutBinding> bindings = {uboLayoutBinding, samplerLayoutBinding, materialLayoutBinding, specMapLayoutBinding};
-
+    auto mlmLayoutBinding = Descriptor::createDescriptorSetLayoutBinding(
+        4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
+    std::vector<VkDescriptorSetLayoutBinding> bindings = {
+        uboLayoutBinding, samplerLayoutBinding, materialLayoutBinding,
+        specMapLayoutBinding, mlmLayoutBinding};
     descriptorSetLayout = Descriptor::createDescriptorSetLayout(&bindings);
 }
 
@@ -178,8 +188,15 @@ void Mesh::createDescriptorSets()
     materialBuffer.binding = 3;
     materialBuffer.descriptorCount = 1;
     materialBuffer.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    // bufferInfos.push_back(directionalLightBuffer);
     bufferInfos.push_back(materialBuffer);
+    VtgeBufferInfo mlmBufferInfo{};
+    mlmBufferInfo.buffer = mlmBuffer.data();
+    mlmBufferInfo.offset = 0;
+    mlmBufferInfo.range = sizeof(ModelLightMatrix) * MAX_LIGHT_COUNT;
+    mlmBufferInfo.binding = 4;
+    mlmBufferInfo.descriptorCount = 1;
+    mlmBufferInfo.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    bufferInfos.push_back(mlmBufferInfo);
     VtgeImageInfo imageBuffer{};
     imageBuffer.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     imageBuffer.view = diffuseMap[0]->textureImageView;
@@ -312,14 +329,26 @@ void Mesh::updateUniformBuffers(UniformBufferObject ubo, uint32_t currentImage)
     vkUnmapMemory(device, uniformBuffersMemory[currentImage]);
 }
 
-void Mesh::updateShadowBuffers(glm::mat4 modelMat, glm::mat4 viewLightMat, glm::mat4 projLightMat, uint32_t currentImage)
+void Mesh::updateDirectionalShadowBuffers(glm::mat4 modelMat, glm::mat4 viewLightMat, glm::mat4 projLightMat, uint32_t currentImage, uint32_t lightIndex)
+{
+    if (directionalMLM.size() - 1 < lightIndex)
+        directionalMLM.resize(directionalMLM.size() * 2);
+    ModelLightMatrix *mlm = &directionalMLM[lightIndex];
+    mlm->modelViewLightMat = viewLightMat * modelMat;
+    mlm->modelViewLightMat *= getMeshTransform();
+    mlm->projLightMat = projLightMat;
+    updateShadowBuffers(*mlm, currentImage);
+    void *data;
+    VkDevice device = Graphics::getDevice();
+    vkMapMemory(device, mlmBufferMemory[currentImage], 0, sizeof(ModelLightMatrix) * MAX_LIGHT_COUNT, 0, &data);
+    memcpy(data, directionalMLM.data(), sizeof(ModelLightMatrix) * MAX_LIGHT_COUNT);
+    vkUnmapMemory(device, mlmBufferMemory[currentImage]);
+}
+
+void Mesh::updateShadowBuffers(ModelLightMatrix mlm, uint32_t currentImage)
 {
     void *data;
     VkDevice device = Graphics::getDevice();
-    ModelLightMatrix mlm;
-    mlm.modelViewLightMat = viewLightMat * modelMat;
-    mlm.modelViewLightMat *= getMeshTransform();
-    mlm.projLightMat = projLightMat;
     vkMapMemory(device, shadowBufferMemory[currentImage], 0, sizeof(ModelLightMatrix), 0, &data);
     memcpy(data, &mlm, sizeof(ModelLightMatrix));
     vkUnmapMemory(device, shadowBufferMemory[currentImage]);

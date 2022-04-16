@@ -94,8 +94,8 @@ void DepthBuffer::createDepthSampler()
     VkDevice device = Graphics::getDevice();
     VkSamplerCreateInfo sampler{};
     sampler.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    sampler.magFilter = VK_FILTER_LINEAR;
-    sampler.minFilter = VK_FILTER_LINEAR;
+    sampler.magFilter = VK_FILTER_NEAREST;
+    sampler.minFilter = VK_FILTER_NEAREST;
     sampler.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     sampler.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     sampler.addressModeV = sampler.addressModeU;
@@ -103,8 +103,8 @@ void DepthBuffer::createDepthSampler()
     sampler.mipLodBias = 0.0f;
     sampler.maxAnisotropy = 1.0f;
     sampler.minLod = 0.0f;
-    sampler.maxLod = 0.0f;
-    sampler.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+    sampler.maxLod = 1.0f;
+    sampler.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
     vkCreateSampler(device, &sampler, nullptr, &depthSampler);
 }
 
@@ -139,7 +139,7 @@ void DepthBuffer::drawDepthBuffer(Object *obj, uint32_t index, uint32_t lightNum
 
     for (Mesh *mesh : meshes)
     {
-        mesh->updateShadowBuffers(modelMat, lightView, lightProjection, index);
+        mesh->updateDirectionalShadowBuffers(modelMat, lightView, lightProjection, index, lightNum);
         std::vector<VkDescriptorSet> combinedDescriptorSets = {(*mesh->getShadowDescriptorSets())[index]};
         VkBuffer vertexBuffers[] = {mesh->getVertexBuffer()};
         VkBuffer indexBuffer = mesh->getIndexBuffer();

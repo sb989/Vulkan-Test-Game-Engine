@@ -48,19 +48,21 @@ public:
     void updateMaterial(Material mat);
     void cleanupMemory();
     void updateUniformBuffers(UniformBufferObject ubo, uint32_t currentImage);
-    void updateShadowBuffers(glm::mat4 modelMat, glm::mat4 viewLightMat, glm::mat4 projLightMat, uint32_t currentImage);
+    void updateDirectionalShadowBuffers(glm::mat4 modelMat, glm::mat4 viewLightMat, glm::mat4 projLightMat, uint32_t currentImage, uint32_t lightIndex);
+    void updateShadowBuffers(ModelLightMatrix mlm, uint32_t currentImage);
     static glm::mat4 assimpMat4ToGlmMat4(aiMatrix4x4 mat4);
     static void initMeshSystem();
 
 private:
+    std::vector<ModelLightMatrix> directionalMLM;
     UniformBufferObject *meshUbo;
     static VkDescriptorSetLayout *descriptorSetLayout, *shadowDescriptorSetLayout;
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
     std::vector<Texture *> diffuseMap;
     std::vector<Texture *> specularMap;
-    std::vector<VkDeviceMemory> uniformBuffersMemory, materialMemory, shadowBufferMemory;
-    std::vector<VkBuffer> uniformBuffers, material, shadowBuffer;
+    std::vector<VkDeviceMemory> uniformBuffersMemory, materialMemory, shadowBufferMemory, mlmBufferMemory;
+    std::vector<VkBuffer> uniformBuffers, material, shadowBuffer, mlmBuffer;
     std::vector<VkDescriptorSet> *descriptorSets, *shadowDescriptorSets;
     VkDescriptorPool *descriptorPool, *shadowDescriptorPool;
     VkBuffer vertexBuffer, indexBuffer;

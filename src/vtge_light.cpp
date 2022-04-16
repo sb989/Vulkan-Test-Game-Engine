@@ -243,7 +243,7 @@ void Light::calculateLightViewMatrix()
 
     glm::vec3 offset = glm::vec3(lightPos.x * direction.x, lightPos.y * direction.y, lightPos.z * direction.z);
     glm::vec3 start = glm::vec3(lightPos) - offset;
-    lightView = glm::lookAtLH(start, start - glm::vec3(direction), up);
+    lightView = glm::lookAt(start, start + glm::vec3(direction), up);
 }
 
 void Light::updateAllLights(uint32_t currentImage, glm::mat4 projection, glm::mat4 view)
@@ -281,8 +281,6 @@ void Light::updateDirectionalLightBuffer(uint32_t currentImage, glm::mat4 projec
         lightData[i].diffuse = dLight->diffuse;
         lightData[i].specular = dLight->specular;
         lightData[i].direction = view * dLight->direction;
-        lightData[i].lightView = dLight->lightView;
-        lightData[i].lightProjection = dLight->lightProjection;
     }
     vkUnmapMemory(device, bufferMemory);
 }
@@ -338,7 +336,6 @@ void Light::updateSpotLightBuffer(uint32_t currentImage, glm::mat4 projection, g
         lightData[i].direction = view * lightList[i]->direction;
         lightData[i].cutOff = lightList[i]->cutOff;
         lightData[i].outerCutOff = lightList[i]->outerCutOff;
-        lightData[i].lightView = lightList[i]->lightView;
     }
     vkUnmapMemory(device, bufferMemory);
 }

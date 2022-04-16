@@ -10,18 +10,14 @@
 const static int MAX_LIGHT_COUNT = 1000;
 struct DirectionalLightInfo
 {
-    // alignas(4) int numLights;
     alignas(16) glm::vec4 diffuse;
     alignas(16) glm::vec4 specular;
     alignas(16) glm::vec4 ambient;
     alignas(16) glm::vec4 direction;
-    alignas(16) glm::mat4 lightView;
-    alignas(16) glm::mat4 lightProjection;
 };
 
 struct SpotLightInfo
 {
-    // alignas(4) int numLights;
     alignas(4) float constant;
     alignas(4) float linear;
     alignas(4) float quadratic;
@@ -32,12 +28,10 @@ struct SpotLightInfo
     alignas(16) glm::vec4 diffuse;
     alignas(16) glm::vec4 specular;
     alignas(16) glm::vec4 ambient;
-    alignas(16) glm::mat4 lightView;
 };
 
 struct PointLightInfo
 {
-    // alignas(4) int numLights;
     alignas(4) float constant;
     alignas(4) float linear;
     alignas(4) float quadratic;

@@ -34,12 +34,12 @@ void TestEngine::loop(Graphics *g)
     // Light::createDirectionalLight("../models/cube.obj", glm::vec3(1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(-1, 0, 0), glm::vec4(10, 15, 10, 1),
     //                               glm::vec4(1), glm::vec4(.0, .0, .0, 1), glm::vec4(1), "white");
     Light::createDirectionalLight("../models/cube.obj", glm::vec3(1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0, -1, 0), glm::vec4(-4, 10, 5, 1),
-                                  glm::vec4(0, 1, 0, 1), glm::vec4(.0, .0, .0, 1), glm::vec4(0, 1, 0, 1), "green");
+                                  glm::vec4(1.0f), glm::vec4(.0, .0, .0, 1), glm::vec4(1.0f), "green");
 
     Light::createPointLight("../models/cube.obj", glm::vec3(1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec4(15, 5, 1, 1),
                             glm::vec4(1, 0, 0, 1), glm::vec4(.2, .2, .2, 1), glm::vec4(1), 1.0f, 0.14f, 0.07f, "red");
-    Light::createSpotLight("../models/cube.obj", glm::vec3(1), glm::vec3(0), glm::vec3(0, -1, 0), glm::vec4(4, 2, 3, 1), glm::vec4(1, 1, 0, 1),
-                           glm::vec4(1, 1, 0, 1), glm::vec4(1), 1.0f, 0.09f, 0.032f, glm::cos(glm::radians(12.5)), glm::cos(glm::radians(15.0f)), "yellow");
+    Light::createSpotLight("../models/cube.obj", glm::vec3(1), glm::vec3(0), glm::vec3(0, -1, 0), glm::vec4(4, 2, 3, 1), glm::vec4(1, 1, 1, 1),
+                           glm::vec4(1, 1, 1, 1), glm::vec4(1), 1.0f, 0.09f, 0.032f, glm::cos(glm::radians(12.5)), glm::cos(glm::radians(15.0f)), "yellow");
     Object::createObject("../models/cube.obj", glm::vec3(2, 14, 5), glm::vec3(1.0f), glm::vec3(0.0f, 0.0f, 0.0f), "../textures/crate_diffuse.png", "../textures/crate_specular.png");
 
     Object::createObject("../models/square.gltf", glm::vec3(0, -5, 0), glm::vec3(1), glm::vec3(0));
@@ -66,9 +66,9 @@ void TestEngine::loop(Graphics *g)
         {
             float x_pos = spot->getModel()->getModelPos().x;
             if (x_pos >= 5)
-                spotlightPosChange = -0.3f;
+                spotlightPosChange = -0.1f;
             else if (x_pos <= -5)
-                spotlightPosChange = 0.3f;
+                spotlightPosChange = 0.1f;
             spot->getModel()->moveModel(glm::vec3(spotlightPosChange, 0, 0));
         }
         if (dir != nullptr)

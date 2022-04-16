@@ -4,7 +4,8 @@ layout(location = 1) out vec4 outDepth;
 layout(location = 1) in vec2 fragTexCoord;
 layout(location = 2) in vec4 fragNormal;
 layout(location = 3) in vec3 fragPos;
-layout(location = 4) in vec3 shadowFragPos;
+layout(location = 4) in vec4 shadowFragPos;
+
 struct SpotLightInfo{
     float constant;
     float linear;
@@ -38,6 +39,11 @@ struct DirectionalLightInfo{
     mat4 lightProj;
 };
 
+struct ModelLightMatrix{
+    mat4 modelViewLightMat;
+    mat4 projLightMat;
+};
+
 layout(set = 0, binding = 1) uniform sampler2D texSampler;// diffuse map/texture
 layout(set = 0, binding = 2) uniform sampler2D specSampler;
 
@@ -60,30 +66,41 @@ layout(std140, set = 1, binding = 2) readonly buffer PointLightBuffer{
     PointLightInfo lights[];
 } pointLightBuffer;
 
+layout(std140, set = 0, binding = 4) readonly buffer ModelLightMatrixBuffer{
+    ModelLightMatrix mlm[];
+}mlmBuffer;
+
 layout(set = 2, binding = 0) uniform sampler2DArray shadowMap;
-
-
 
 vec3 calcDirLight(DirectionalLightInfo light, vec3 normal, vec4 objColor, vec4 objSpec, uint index);
 vec3 calcPointLight(PointLightInfo light, vec3 normal, vec4 objColor, vec4 objSpec);
 vec3 calcSpotLight(SpotLightInfo light, vec3 normal, vec4 objColor, vec4 objSpec);
 float shadowCalculations(vec4 fragPosLightSpace, float index);
 
+const mat4 biasMat = mat4( 
+	0.5, 0.0, 0.0, 0.0,
+	0.0, 0.5, 0.0, 0.0,
+	0.0, 0.0, 1.0, 0.0,
+	0.5, 0.5, 0.0, 1.0
+    );
+
 float shadowCalculations(vec4 fragPosLightSpace, float index)
 {
-    float shadow = 0.0;
-    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
-    projCoords = projCoords * 0.5 + 0.5;
-    float closestDepth = texture(shadowMap, vec3(projCoords.xy, index)).x;
-    float currentDepth = projCoords.z;
-    //greater value means closer to white
-    if(currentDepth > closestDepth)
+    float shadow = 1.0;
+    outDepth = vec4(0,0,1,1);
+    if(fragPosLightSpace.z > 0 && fragPosLightSpace.z < 1)
     {
-        shadow = 1.0;
-        outDepth = vec4(vec3(closestDepth, 0, 0), 1.0);
+        vec4 projCoords = fragPosLightSpace;
+        float closestDepth = texture(shadowMap, vec3(projCoords.xy, index)).x;
+        float currentDepth = projCoords.z;
+        outDepth = vec4(0, currentDepth, 0, 1);
+        //greater value means closer to white
+        if(currentDepth > closestDepth)
+        {
+            outDepth = vec4(closestDepth,0,0,1);
+            shadow = 0.5;
+        }
     }
-    else
-        outDepth = vec4(vec3(0,currentDepth, 0), 1.0);
     return shadow;
 }
 void main() {
@@ -104,16 +121,14 @@ void main() {
         SpotLightInfo spotLight = spotLightBuffer.lights[i];
         colorSum += calcSpotLight(spotLight, norm, objColor, objSpec);
     }
-    outColor = outDepth;//vec4(colorSum,1.0);
-    // vec4 fragPosLightSpace = (directionalLightBuffer.lights[0].lightView * shadowFragPos);
-    // vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
-    // projCoords = projCoords * 0.5 + 0.5;
-    // outColor = vec4(projCoords.z);
+    outColor = vec4(colorSum,1.0);
 }
 
 vec3 calcDirLight(DirectionalLightInfo light, vec3 normal, vec4 objColor, vec4 objSpec, uint index){
-    vec4 fragPosLightSpace = light.lightView * vec4(shadowFragPos,1.0);
-    float shadow = shadowCalculations(fragPosLightSpace, index);
+
+    ModelLightMatrix mlmMats = mlmBuffer.mlm[index];
+    vec4 fragPosLightSpace =  (biasMat * mlmMats.projLightMat * mlmMats.modelViewLightMat) * shadowFragPos;
+    float shadow = shadowCalculations(fragPosLightSpace / fragPosLightSpace.w, index);
 
     vec3 dirToLight = normalize((vec3(-light.direction)));
     //viewDir = viewPos - fragPos, but camera is always at the origin 
@@ -126,10 +141,10 @@ vec3 calcDirLight(DirectionalLightInfo light, vec3 normal, vec4 objColor, vec4 o
     // combine results
     vec3 amb = vec3(light.ambient);
     vec3 ambient  = amb * vec3(objColor);
-    vec3 diffuse  = vec3((light.diffuse + vec4(shadow, 0, 0, 0))  * (diff * objColor));
-    vec3 specular = vec3((light.specular + vec4(shadow, 0, 0, 0)) * (spec * objSpec));
+    vec3 diffuse  = vec3((light.diffuse)  * (diff * objColor));
+    vec3 specular = vec3((light.specular) * (spec * objSpec));
     
-    vec3 result = ambient + diffuse + specular;
+    vec3 result = ambient + shadow * (diffuse + specular);
     return result;
 }
 

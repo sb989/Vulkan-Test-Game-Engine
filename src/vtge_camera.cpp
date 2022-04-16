@@ -13,7 +13,7 @@ Camera::Camera(float width, float height)
     cursorXPos = cursorYPos = 0.0f;
     camPos = glm::vec3(camXPos, camYPos, camZPos);
     lookDir = glm::vec3(0.0f, 0.0f, -1.0f);
-    viewMat = glm::lookAtLH(glm::vec3(camXPos, camYPos, camZPos), lookDir + camPos, glm::vec3(0.0f, 1.0f, 0.0f));
+    viewMat = glm::lookAt(glm::vec3(camXPos, camYPos, camZPos), lookDir + camPos, glm::vec3(0.0f, 1.0f, 0.0f));
     projectionMat = glm::perspective(glm::radians(45.0f), width / height, 0.1f, 400.0f);
     camYaw = camPitch = oldCamPitch = oldCamYaw = 0.0f;
 }
@@ -31,24 +31,24 @@ void Camera::handleKeyPress(GLFWwindow *window)
 
     if (up_state == GLFW_PRESS || up_state == GLFW_REPEAT && down_state != GLFW_REPEAT)
     {
-        camXPos -= .3f * lookDir.x;
-        camZPos -= .3f * lookDir.z;
+        camXPos += .3f * lookDir.x;
+        camZPos += .3f * lookDir.z;
     }
     else if (down_state == GLFW_PRESS || down_state == GLFW_REPEAT && up_state != GLFW_REPEAT)
     {
-        camXPos += .3f * lookDir.x;
-        camZPos += .3f * lookDir.z;
+        camXPos -= .3f * lookDir.x;
+        camZPos -= .3f * lookDir.z;
     }
 
     if (left_state == GLFW_PRESS || left_state == GLFW_REPEAT && right_state != GLFW_REPEAT)
     {
-        camXPos += .3f * lookDir.z;
-        camZPos -= .3f * lookDir.x;
+        camXPos -= .3f * lookDir.z;
+        camZPos += .3f * lookDir.x;
     }
     else if (right_state == GLFW_PRESS || right_state == GLFW_REPEAT && left_state != GLFW_REPEAT)
     {
-        camXPos -= .3f * lookDir.z;
-        camZPos += .3f * lookDir.x;
+        camXPos += .3f * lookDir.z;
+        camZPos -= .3f * lookDir.x;
     }
 
     if (esc_state == GLFW_PRESS || esc_state == GLFW_REPEAT && enter_state != GLFW_REPEAT)
@@ -85,7 +85,7 @@ void Camera::handleMouse(GLFWwindow *window)
         float xdiff = x_pos - cursorXPos;
         float ydiff = y_pos - cursorYPos;
         camYaw -= xdiff * .05;
-        camPitch += ydiff * .05;
+        camPitch -= ydiff * .05;
         cursorXPos = x_pos;
         cursorYPos = y_pos;
     }
@@ -116,7 +116,7 @@ void Camera::updateCamera()
     //     glm::vec4(newCamRight.y, newCamUp.y, lookDir.y, 0),
     //     glm::vec4(newCamRight.z, newCamUp.z, lookDir.z, 0),
     //     glm::vec4(-dot(newCamRight, camPos), -dot(newCamUp, camPos), -dot(lookDir, camPos), 1));
-    viewMat = glm::lookAtLH(camPos, camPos + lookDir, newCamUp);
+    viewMat = glm::lookAt(camPos, camPos + lookDir, newCamUp);
     oldCamPitch = camPitch;
     oldCamYaw = camYaw;
 }
