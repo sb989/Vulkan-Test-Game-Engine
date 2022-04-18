@@ -17,7 +17,6 @@ struct SpotLightInfo{
     vec4 diffuse;
     vec4 specular;
     vec4 ambient;
-    mat4 lightView;
 };
 
 struct PointLightInfo{
@@ -35,8 +34,6 @@ struct DirectionalLightInfo{
     vec4 specular;
     vec4 ambient;
     vec4 direction;
-    mat4 lightView;
-    mat4 lightProj;
 };
 
 struct ModelLightMatrix{
@@ -75,7 +72,7 @@ layout(set = 2, binding = 0) uniform sampler2DArray shadowMap;
 vec3 calcDirLight(DirectionalLightInfo light, vec3 normal, vec4 objColor, vec4 objSpec, uint index);
 vec3 calcPointLight(PointLightInfo light, vec3 normal, vec4 objColor, vec4 objSpec);
 vec3 calcSpotLight(SpotLightInfo light, vec3 normal, vec4 objColor, vec4 objSpec);
-float shadowCalculations(vec4 fragPosLightSpace, float index);
+float shadowCalculations(vec4 fragPosLightSpace, uint index);
 
 const mat4 biasMat = mat4( 
 	0.5, 0.0, 0.0, 0.0,
@@ -84,20 +81,21 @@ const mat4 biasMat = mat4(
 	0.5, 0.5, 0.0, 1.0
     );
 
-float shadowCalculations(vec4 fragPosLightSpace, float index)
+
+float shadowCalculations(vec4 fragPosLightSpace, uint index, float shadowBias)
 {
     float shadow = 1.0;
     outDepth = vec4(0,0,1,1);
-    if(fragPosLightSpace.z > 0 && fragPosLightSpace.z < 1)
+    if(fragPosLightSpace.z > -1 && fragPosLightSpace.z < 1)
     {
         vec4 projCoords = fragPosLightSpace;
         float closestDepth = texture(shadowMap, vec3(projCoords.xy, index)).x;
         float currentDepth = projCoords.z;
         outDepth = vec4(0, currentDepth, 0, 1);
         //greater value means closer to white
-        if(currentDepth > closestDepth)
+        if(currentDepth - shadowBias > closestDepth)
         {
-            outDepth = vec4(closestDepth,0,0,1);
+            outDepth = vec4(closestDepth,0,0,0.5);
             shadow = 0.5;
         }
     }
@@ -125,11 +123,7 @@ void main() {
 }
 
 vec3 calcDirLight(DirectionalLightInfo light, vec3 normal, vec4 objColor, vec4 objSpec, uint index){
-
-    ModelLightMatrix mlmMats = mlmBuffer.mlm[index];
-    vec4 fragPosLightSpace =  (biasMat * mlmMats.projLightMat * mlmMats.modelViewLightMat) * shadowFragPos;
-    float shadow = shadowCalculations(fragPosLightSpace / fragPosLightSpace.w, index);
-
+    
     vec3 dirToLight = normalize((vec3(-light.direction)));
     //viewDir = viewPos - fragPos, but camera is always at the origin 
     // in view space, so it becomes viewDir = -fragPos
@@ -144,6 +138,12 @@ vec3 calcDirLight(DirectionalLightInfo light, vec3 normal, vec4 objColor, vec4 o
     vec3 diffuse  = vec3((light.diffuse)  * (diff * objColor));
     vec3 specular = vec3((light.specular) * (spec * objSpec));
     
+    float shadowBias = max(0.05 * (1.0 - dot(fragNormal, light.direction)), 0.005); //0.005;
+    ModelLightMatrix mlmMats = mlmBuffer.mlm[index];
+    vec4 fragPosLightSpace =  (biasMat * mlmMats.projLightMat * mlmMats.modelViewLightMat) * shadowFragPos;
+    float shadow = shadowCalculations(fragPosLightSpace / fragPosLightSpace.w, index, shadowBias);
+
+
     vec3 result = ambient + shadow * (diffuse + specular);
     return result;
 }

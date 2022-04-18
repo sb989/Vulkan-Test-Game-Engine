@@ -233,7 +233,7 @@ void Light::calculateLightViewMatrix()
     if (type == Spot)
         return;
     float near_plane = -20.0f, far_plane = 30.00f;
-    float orthoBound = 20.0f;
+    float orthoBound = 14.0f;
     lightProjection = glm::ortho(-orthoBound, orthoBound, -orthoBound, orthoBound, near_plane, far_plane);
     glm::vec3 up = glm::cross(glm::vec3(direction), glm::vec3(0, 1, 0));
     if (up.x == 0 && up.y == 0 && up.z == 0)

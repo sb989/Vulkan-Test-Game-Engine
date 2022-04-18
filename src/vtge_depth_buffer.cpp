@@ -97,14 +97,14 @@ void DepthBuffer::createDepthSampler()
     sampler.magFilter = VK_FILTER_NEAREST;
     sampler.minFilter = VK_FILTER_NEAREST;
     sampler.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-    sampler.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    sampler.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
     sampler.addressModeV = sampler.addressModeU;
     sampler.addressModeW = sampler.addressModeU;
     sampler.mipLodBias = 0.0f;
     sampler.maxAnisotropy = 1.0f;
     sampler.minLod = 0.0f;
     sampler.maxLod = 1.0f;
-    sampler.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
+    sampler.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
     vkCreateSampler(device, &sampler, nullptr, &depthSampler);
 }
 
@@ -150,7 +150,7 @@ void DepthBuffer::drawDepthBuffer(Object *obj, uint32_t index, uint32_t lightNum
         vkCmdBindIndexBuffer(commandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                                 depthPipeline->getPipelineLayout(), 0, combinedDescriptorSets.size(), combinedDescriptorSets.data(), 0, nullptr);
-        vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+        vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, lightNum);
     }
 }
 

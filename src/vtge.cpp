@@ -33,16 +33,17 @@ void TestEngine::loop(Graphics *g)
     //                               glm::vec4(0, 1, 0, 1), glm::vec4(.0, .0, .0, 1), glm::vec4(0, 1, 0, 1), "green");
     // Light::createDirectionalLight("../models/cube.obj", glm::vec3(1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(-1, 0, 0), glm::vec4(10, 15, 10, 1),
     //                               glm::vec4(1), glm::vec4(.0, .0, .0, 1), glm::vec4(1), "white");
-    Light::createDirectionalLight("../models/cube.obj", glm::vec3(1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0, -1, 0), glm::vec4(-4, 10, 5, 1),
-                                  glm::vec4(1.0f), glm::vec4(.0, .0, .0, 1), glm::vec4(1.0f), "green");
-
+    Light::createDirectionalLight("../models/cube.obj", glm::vec3(1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.5, -1, 0), glm::vec4(-4, 10, 5, 1),
+                                  glm::vec4(1.0f), glm::vec4(.0, .0, .0, 1), glm::vec4(1.0f), "white");
+    Light::createDirectionalLight("../models/cube.obj", glm::vec3(1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0, -1, 0), glm::vec4(-2, 10, 5, 1),
+                                  glm::vec4(1.0f), glm::vec4(.0, .0, .0, 1), glm::vec4(1.0f), "white");
     Light::createPointLight("../models/cube.obj", glm::vec3(1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec4(15, 5, 1, 1),
                             glm::vec4(1, 0, 0, 1), glm::vec4(.2, .2, .2, 1), glm::vec4(1), 1.0f, 0.14f, 0.07f, "red");
     Light::createSpotLight("../models/cube.obj", glm::vec3(1), glm::vec3(0), glm::vec3(0, -1, 0), glm::vec4(4, 2, 3, 1), glm::vec4(1, 1, 1, 1),
                            glm::vec4(1, 1, 1, 1), glm::vec4(1), 1.0f, 0.09f, 0.032f, glm::cos(glm::radians(12.5)), glm::cos(glm::radians(15.0f)), "yellow");
     Object::createObject("../models/cube.obj", glm::vec3(2, 14, 5), glm::vec3(1.0f), glm::vec3(0.0f, 0.0f, 0.0f), "../textures/crate_diffuse.png", "../textures/crate_specular.png");
 
-    Object::createObject("../models/square.gltf", glm::vec3(0, -5, 0), glm::vec3(1), glm::vec3(0));
+    Object::createObject("../models/square.gltf", glm::vec3(0, -3.0, 0), glm::vec3(1), glm::vec3(0));
     Object::createObject("../models/cube.obj", glm::vec3(2, 10, 5), glm::vec3(1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec4(0, 200, 125, 255), "ugly");
 
     Object::createObject(BANANA_MODEL_PATH, glm::vec3(2, 0, 5), glm::vec3(0.05f), glm::vec3(0.0f, 90.0f, 0.0f), BANANA_TEXTURE_PATH);
@@ -50,8 +51,8 @@ void TestEngine::loop(Graphics *g)
 
     Object::createObject(VIKING_MODEL_PATH, glm::vec3(-4, 5, 5), glm::vec3(1.0f), glm::vec3(0.0f), VIKING_TEXTURE_PATH);
 
-    Object::createObject("../models/porsche.gltf", glm::vec3(10, 10, 10), glm::vec3(1), glm::vec3(0, 0, 0));
-    // Object::createObject("../models/square.gltf", glm::vec3(0, 0, 0), glm::vec3(1), glm::vec3(0));
+    // Object::createObject("../models/porsche.gltf", glm::vec3(10, 10, 10), glm::vec3(1), glm::vec3(0, 0, 0));
+    //  Object::createObject("../models/square.gltf", glm::vec3(0, 0, 0), glm::vec3(1), glm::vec3(0));
     Object::createObject("../models/sphere.gltf", glm::vec3(5, 0, 5), glm::vec3(1), glm::vec3(0));
     Graphics::endTransferCommandBuffer();
     Graphics::endGraphicsCommandBuffer();
